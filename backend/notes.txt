@@ -1,0 +1,25 @@
+//admin 
+
+dashboard : details 
+employees : 
+managers  :
+reports   :
+
+
+//employees
+
+
+
+
+
+// manager 
+
+
+
+
+reports
+
+date employeename shift 
+
+
+

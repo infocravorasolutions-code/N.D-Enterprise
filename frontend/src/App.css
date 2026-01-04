@@ -1,0 +1,51 @@
+.app-container {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 260px;
+  transition: margin-left 0.3s ease;
+  overflow-y: auto;
+  background-color: #f5f5f5;
+  position: relative;
+  width: 100%;
+}
+
+.main-content.sidebar-closed {
+  margin-left: 80px;
+}
+
+/* Sidebar Overlay for Mobile */
+.sidebar-overlay {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0 !important;
+    padding-top: 60px;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    top: 60px;
+  }
+
+  /* Prevent body scroll when sidebar is open on mobile */
+  body.sidebar-open-mobile {
+    overflow: hidden;
+  }
+}
+

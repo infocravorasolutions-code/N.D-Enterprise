@@ -14,6 +14,10 @@ const Employees = () => {
   const [error, setError] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
+  
+  // Get user type
+  const userType = localStorage.getItem('userType') || 'admin'
+  const isManager = userType === 'manager'
 
   useEffect(() => {
     fetchEmployees()
@@ -53,31 +57,35 @@ const Employees = () => {
 
   const handleSaveEmployee = async (data) => {
     try {
-      // Get admin ID from token or user context
-      const adminId = localStorage.getItem('adminId') || 'admin-id-placeholder'
-      
       const employeeData = {
         name: data.fullName,
         email: data.email || '',
         mobile: data.mobile || '',
         address: data.address || '',
-        managerId: data.manager || '',
         shift: data.shift,
-      }
-
-      // Add these fields only when creating new employee
-      if (!editingEmployee) {
-        employeeData.createdBy = adminId
-        employeeData.isCreatedByAdmin = true
       }
 
       let response
       if (editingEmployee) {
         // Update existing employee
+        // For managers, don't allow changing manager assignment
+        if (!isManager) {
+          employeeData.managerId = data.manager || ''
+        }
         response = await employeeAPI.update(editingEmployee._id, employeeData, data.photo)
       } else {
         // Create new employee
-        response = await employeeAPI.create(employeeData, data.photo)
+        if (isManager) {
+          // Use manager-specific API endpoint
+          response = await employeeAPI.createByManager(employeeData, data.photo)
+        } else {
+          // Admin creates employee
+          const adminId = localStorage.getItem('adminId') || 'admin-id-placeholder'
+          employeeData.managerId = data.manager || ''
+          employeeData.createdBy = adminId
+          employeeData.isCreatedByAdmin = true
+          response = await employeeAPI.create(employeeData, data.photo)
+        }
       }
 
       if (response) {
@@ -142,8 +150,10 @@ const Employees = () => {
       <div className="page-header">
         <div className="page-header-content">
           <div>
-            <h1>Employees</h1>
-            <p className="page-subtitle">Manage all employees in the system.</p>
+            <h1>{isManager ? 'My Employees' : 'Employees'}</h1>
+            <p className="page-subtitle">
+              {isManager ? 'Manage your assigned employees.' : 'Manage all employees in the system.'}
+            </p>
           </div>
           <button className="btn-primary" onClick={handleAddEmployee}>
             + Add Employee
@@ -255,6 +265,7 @@ const Employees = () => {
         onClose={handleCloseModal}
         onSave={handleSaveEmployee}
         employee={editingEmployee}
+        isManager={isManager}
       />
     </div>
   )

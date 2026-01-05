@@ -44,6 +44,11 @@ default:""
     type: Schema.Types.ObjectId,
     ref: 'Admin || Manager', // Assuming createdBy can be either Admin or Manager
     required: true
+  },
+  siteId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Site',
+    default: null // null means global employee, not assigned to any site
   }
 }, {
   timestamps: true

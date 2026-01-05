@@ -37,6 +37,11 @@ default:false
  },
  otp: String,
 otpExpires: Date,
+ siteId: {
+  type: Schema.Types.ObjectId,
+  ref: 'Site',
+  default: null // null means global manager, not assigned to any site
+ },
 }, {
   timestamps: true
 });

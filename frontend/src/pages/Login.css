@@ -55,6 +55,22 @@
   letter-spacing: 0.5px;
 }
 
+.logo-image {
+  width: auto;
+  height: 60px;
+  max-width: 120px;
+  aspect-ratio: 1396 / 817;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+  .logo-image {
+    height: 50px;
+    max-width: 100px;
+  }
+}
+
 .login-header h1 {
   font-size: 28px;
   font-weight: 700;

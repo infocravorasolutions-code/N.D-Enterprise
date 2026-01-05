@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 export const createManager = async (req, res) => {
   try {
-    const { email, password, name, mobile, address, adminId } = req.body;
+    const { email, password, name, mobile, address, adminId, siteId } = req.body;
     console.log('📝 [createManager] Request body:', req.body);
     
     if(!adminId || !email || !password || !name || !mobile || !address){
@@ -27,7 +27,8 @@ export const createManager = async (req, res) => {
       address, 
       createdBy: adminId,
       userType: 'manager',
-      isActive: true
+      isActive: true,
+      siteId: siteId || null // optional siteId field
     });
     
     console.log('💾 [createManager] Saving manager:', newManager);
@@ -100,12 +101,32 @@ export const loginManager = async (req, res) => {
     if (!manager) {
       return res.status(404).json({ message: "Manager not found" });
     }
+    
+    // Check if manager is active
+    if (!manager.isActive) {
+      return res.status(403).json({ message: "Your account is inactive. Please contact administrator." });
+    }
+    
     const isPasswordValid = await bcrypt.compare(password, manager.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid password" });
     }       
-    const token = jwt.sign({ id: manager._id, email: manager.email,userType:manager.userType }, JWT_SECRET, { expiresIn: '1y' });
-    res.status(200).json({ message: "Login successful", token, manager });
+    
+    const token = jwt.sign({ id: manager._id, email: manager.email, userType: manager.userType }, JWT_SECRET, { expiresIn: '1y' });
+    
+    // Return manager data including siteId
+    const managerData = {
+      _id: manager._id,
+      name: manager.name,
+      email: manager.email,
+      mobile: manager.mobile,
+      address: manager.address,
+      userType: manager.userType,
+      isActive: manager.isActive,
+      siteId: manager.siteId || null // Include siteId in response
+    };
+    
+    res.status(200).json({ message: "Login successful", token, manager: managerData });
     }
     catch (error) {
       console.error("Error logging in:", error);
@@ -115,7 +136,8 @@ export const loginManager = async (req, res) => {
 
 export const getAllManagers = async (req, res) => {
   try {
-    const managers = await Manager.find();
+    // Only return global managers (not assigned to any site)
+    const managers = await Manager.find({ siteId: null });
     console.log("managers",managers)
     res.status(200).json({message:"success" ,data:managers});
   } catch (error) {

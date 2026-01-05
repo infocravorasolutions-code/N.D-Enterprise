@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react'
-import { FaSync, FaFilePdf, FaFileExcel } from 'react-icons/fa'
-import { employeeAPI, attendanceAPI } from '../services/api'
+import { useParams, useNavigate } from 'react-router-dom'
+import { FaSync, FaFilePdf, FaFileExcel, FaArrowLeft } from 'react-icons/fa'
+import { siteAPI, employeeAPI, attendanceAPI } from '../services/api'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
 import './Page.css'
 
-const MasterRollReport = () => {
+const SiteMasterRollReport = () => {
+  const { id } = useParams()
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [month, setMonth] = useState('01')
-  const [year, setYear] = useState('2026')
+  const [month, setMonth] = useState(new Date().getMonth() + 1 < 10 ? `0${new Date().getMonth() + 1}` : `${new Date().getMonth() + 1}`)
+  const [year, setYear] = useState(new Date().getFullYear().toString())
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [attendanceData, setAttendanceData] = useState([])
   const [employees, setEmployees] = useState([])
+  const [site, setSite] = useState(null)
   const [loading, setLoading] = useState(false)
   const [summary, setSummary] = useState({
     totalPresentDays: 0,
@@ -23,29 +27,39 @@ const MasterRollReport = () => {
   })
 
   useEffect(() => {
+    fetchSiteData()
     fetchEmployees()
-  }, [])
+  }, [id])
 
   useEffect(() => {
     if (month && year) {
       fetchMusterRollData()
     }
-  }, [month, year, fromDate, toDate])
+  }, [month, year, fromDate, toDate, id])
+
+  const fetchSiteData = async () => {
+    try {
+      const response = await siteAPI.get(id)
+      setSite(response.data)
+    } catch (error) {
+      console.error('Error fetching site:', error)
+    }
+  }
 
   const fetchEmployees = async () => {
     try {
-      const response = await employeeAPI.getAll()
+      const response = await siteAPI.getEmployees(id)
       const employeesList = Array.isArray(response) 
         ? response 
         : (response?.data || [])
       
       setEmployees(employeesList)
-        setSummary(prev => ({
-          ...prev,
+      setSummary(prev => ({
+        ...prev,
         totalEmployees: employeesList.length
-        }))
+      }))
       
-      console.log('Fetched employees for muster roll:', employeesList.length)
+      console.log('Fetched employees for site muster roll:', employeesList.length)
     } catch (error) {
       console.error('Error fetching employees:', error)
     }
@@ -57,22 +71,22 @@ const MasterRollReport = () => {
       const startDate = fromDate || `${year}-${month}-01`
       const endDate = toDate || `${year}-${month}-${new Date(parseInt(year), parseInt(month), 0).getDate()}`
       
-      // Fetch all attendance records for the period
-      const attendanceResponse = await attendanceAPI.getAll({
-        fromDate: startDate,
-        toDate: endDate
+      // Fetch site-specific attendance records for the period
+      const attendanceResponse = await siteAPI.getAttendance(id, {
+        startDate: startDate,
+        endDate: endDate
       })
       
       // Process attendance data to create muster roll format
       const attendanceRecords = attendanceResponse.data || attendanceResponse.attendance || []
       
-      console.log('Attendance records fetched:', attendanceRecords.length)
+      console.log('Site attendance records fetched:', attendanceRecords.length)
       console.log('Sample attendance record:', attendanceRecords[0])
       console.log('Employees list:', employees.length)
       
       const processedData = processAttendanceData(attendanceRecords, employees)
       
-      console.log('Processed muster roll data:', processedData.length)
+      console.log('Processed site muster roll data:', processedData.length)
       console.log('Sample processed row:', processedData[0])
       setAttendanceData(processedData)
       
@@ -145,8 +159,26 @@ const MasterRollReport = () => {
       }
     })
     
-    // Convert to array format
-    return Object.values(employeeAttendanceMap)
+    // Convert to array and fill missing days
+    return Object.values(employeeAttendanceMap).map(emp => ({
+      ...emp,
+      attendance: fillMissingDays(emp.attendance, month, year)
+    }))
+  }
+
+  const fillMissingDays = (attendance, month, year) => {
+    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate()
+    const filled = {}
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      if (attendance[day]) {
+        filled[day] = attendance[day]
+      } else {
+        filled[day] = { status: 'A', stepIn: '', stepOut: '' }
+      }
+    }
+    
+    return filled
   }
 
   const formatTime = (dateString) => {
@@ -156,46 +188,31 @@ const MasterRollReport = () => {
 
   const calculateTotalPresentDays = (data) => {
     return data.reduce((total, emp) => {
-      return total + Object.keys(emp.attendance || {}).length
+      const presentDays = Object.values(emp.attendance).filter(att => att.status === 'P').length
+      return total + presentDays
     }, 0)
   }
 
-  // Get all days in the selected period
-  const getDaysInPeriod = () => {
-    const startDate = fromDate || `${year}-${month}-01`
-    const endDate = toDate || `${year}-${month}-${new Date(parseInt(year), parseInt(month), 0).getDate()}`
-    
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    const days = []
-    
-    const currentDate = new Date(start)
-    while (currentDate <= end) {
-      days.push({
-        day: currentDate.getDate(),
-        date: new Date(currentDate)
-      })
-      currentDate.setDate(currentDate.getDate() + 1)
-    }
-    
-    return days
+  const getDaysInMonth = () => {
+    return new Date(parseInt(year), parseInt(month), 0).getDate()
   }
 
-  const filteredData = attendanceData.filter(item => {
+  const filteredData = attendanceData.filter(emp => {
     if (!searchQuery) return true
-    return item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const query = searchQuery.toLowerCase()
+    return emp.name.toLowerCase().includes(query) || 
+           emp.shift.toLowerCase().includes(query)
   })
-
-  const daysInPeriod = getDaysInPeriod()
 
   // Calculate totals for each day (column totals)
   const calculateDayTotals = () => {
     const dayTotals = {}
-    daysInPeriod.forEach(({ day }) => {
+    const daysInMonth = getDaysInMonth()
+    for (let day = 1; day <= daysInMonth; day++) {
       dayTotals[day] = filteredData.filter(row => 
         row.attendance && row.attendance[day] && row.attendance[day].status === 'P'
       ).length
-    })
+    }
     return dayTotals
   }
 
@@ -215,17 +232,10 @@ const MasterRollReport = () => {
 
   const exportToPDF = async () => {
     try {
-      console.log('PDF export button clicked')
-      
-      if (!filteredData || filteredData.length === 0) {
-        alert('No data available to export')
-        return
-      }
-
-      console.log('Creating PDF document...')
       const doc = new jsPDF('landscape')
       const pageWidth = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
+      const daysInMonth = getDaysInMonth()
       
       // Company Branding Header
       const headerY = 10
@@ -244,14 +254,13 @@ const MasterRollReport = () => {
               resolve()
             } catch (e) {
               console.warn('Could not add logo to PDF:', e)
-              resolve() // Continue without logo
+              resolve()
             }
           }
           img.onerror = () => {
             console.warn('Logo image failed to load')
-            resolve() // Continue without logo
+            resolve()
           }
-          // Timeout after 2 seconds
           setTimeout(() => resolve(), 2000)
         })
       } catch (e) {
@@ -268,6 +277,16 @@ const MasterRollReport = () => {
       doc.setFont(undefined, 'normal')
       doc.text('Workforce Management System', companyNameX, headerY + 15)
       
+      // Site Name
+      doc.setFontSize(11)
+      doc.setFont(undefined, 'bold')
+      doc.text(`Site: ${site?.name || 'N/A'}`, companyNameX, headerY + 22)
+      if (site?.location) {
+        doc.setFontSize(9)
+        doc.setFont(undefined, 'normal')
+        doc.text(`Location: ${site.location}`, companyNameX, headerY + 28)
+      }
+      
       // Report Title (centered)
       doc.setFontSize(16)
       doc.setFont(undefined, 'bold')
@@ -276,70 +295,69 @@ const MasterRollReport = () => {
       // Form Number and Period
       doc.setFontSize(11)
       doc.setFont(undefined, 'normal')
-      const periodText = `Form XVI-1 | Period: ${summary.selectedPeriod || `${new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' })} ${year}`}`
+      const periodText = `Form XVI-1 | Period: ${new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' })} ${year}`
       doc.text(periodText, pageWidth / 2, headerY + 32, { align: 'center' })
       
       // Add a line separator
       doc.setDrawColor(139, 92, 246)
       doc.setLineWidth(0.5)
       doc.line(15, headerY + 37, pageWidth - 15, headerY + 37)
-      
-      // Prepare table data with clock-in/clock-out times (compact format)
-      const tableData = filteredData.map((row, index) => {
-        const rowData = [
-          index + 1,
-          row.name.length > 25 ? row.name.substring(0, 22) + '...' : row.name, // Truncate long names
-          row.designation || 'N/A',
-          row.shift?.substring(0, 3).toUpperCase() || 'N/A', // Abbreviate shift
-          ...daysInPeriod.map(({ day }) => {
-            if (row.attendance && row.attendance[day] && row.attendance[day].status === 'P') {
-              const att = row.attendance[day]
-              const stepIn = att.stepIn || ''
-              const stepOut = att.stepOut || ''
-              // Compact format: "P\nHH:MM\nHH:MM" (removed "IN:" and "OUT:" labels to save space)
-              if (stepIn && stepOut) {
-                return `P\n${stepIn}\n${stepOut}`
-              } else if (stepIn) {
-                return `P\n${stepIn}`
-              } else {
-                return 'P'
-              }
+    
+    // Prepare table data with clock-in/clock-out times (compact format)
+    const tableData = filteredData.map((row, index) => {
+      const rowData = [
+        index + 1,
+        row.name.length > 25 ? row.name.substring(0, 22) + '...' : row.name, // Truncate long names
+        row.designation || 'N/A',
+        row.shift?.substring(0, 3).toUpperCase() || 'N/A', // Abbreviate shift
+        ...Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1
+          if (row.attendance && row.attendance[day] && row.attendance[day].status === 'P') {
+            const att = row.attendance[day]
+            const stepIn = att.stepIn || ''
+            const stepOut = att.stepOut || ''
+            // Compact format: "P\nHH:MM\nHH:MM" (removed "IN:" and "OUT:" labels to save space)
+            if (stepIn && stepOut) {
+              return `P\n${stepIn}\n${stepOut}`
+            } else if (stepIn) {
+              return `P\n${stepIn}`
+            } else {
+              return 'P'
             }
-            return '-'
-          }),
-          rowTotals[index] || 0
-        ]
-        return rowData
-      })
-      
-      // Add total row
-      const totalRow = [
-        'TOTAL',
-        '',
-        '',
-        '',
-        ...daysInPeriod.map(({ day }) => dayTotals[day] || 0),
-        grandTotal
-      ]
-      tableData.push(totalRow)
-      
-      // Table headers with properly formatted dates (compact format to fit all dates)
-      const headers = [
-        'SR',
-        'NAME',
-        'DESG',
-        'SHIFT',
-        ...daysInPeriod.map(({ day, date }) => {
-          // Format as just "DD" to save space (removed day abbreviation)
-          return String(day).padStart(2, '0')
+          }
+          return '-'
         }),
-        'TOT'
+        rowTotals[index] || 0
       ]
-      
-      // Check if autoTable is available
-      console.log('Checking autoTable availability...', typeof doc.autoTable, typeof autoTable)
-      
-      // Table configuration with improved styling
+      return rowData
+    })
+    
+    // Add total row
+    const totalRow = [
+      'TOTAL',
+      '',
+      '',
+      '',
+      ...Array.from({ length: daysInMonth }, (_, i) => dayTotals[i + 1] || 0),
+      grandTotal
+    ]
+    tableData.push(totalRow)
+    
+    // Table headers with properly formatted dates (compact format to fit all dates)
+    const headers = [
+      'SR',
+      'NAME',
+      'DESG',
+      'SHIFT',
+      ...Array.from({ length: daysInMonth }, (_, i) => {
+        const day = i + 1
+        // Format as just "DD" to save space (removed day abbreviation)
+        return String(day).padStart(2, '0')
+      }),
+      'TOT'
+    ]
+    
+      // Table configuration with improved styling (optimized to fit all dates)
       const tableConfig = {
         head: [headers],
         body: tableData,
@@ -371,10 +389,10 @@ const MasterRollReport = () => {
         },
         columnStyles: (() => {
           // Calculate available width (landscape A4 is ~842 points, minus margins)
-          const availableWidth = pageWidth - 30 // 15px margin on each side
+          const availableWidth = pageWidth - 20 // 10px margin on each side
           const fixedColumnsWidth = 8 + 28 + 12 + 12 + 10 // SR + NAME + DESG + SHIFT + TOT
           const dateColumnsWidth = availableWidth - fixedColumnsWidth
-          const dateColumnWidth = Math.max(6, Math.floor(dateColumnsWidth / daysInPeriod.length)) // Minimum 6, distribute evenly
+          const dateColumnWidth = Math.max(6, Math.floor(dateColumnsWidth / daysInMonth)) // Minimum 6, distribute evenly
           
           const styles = {
             0: { cellWidth: 8, halign: 'center', fontSize: 6 }, // SR
@@ -383,18 +401,18 @@ const MasterRollReport = () => {
             3: { cellWidth: 12, halign: 'center', fontSize: 6 }, // SHIFT (reduced)
           }
           // Date columns - optimized width to fit all dates
-          daysInPeriod.forEach((_, idx) => {
+          Array.from({ length: daysInMonth }).forEach((_, idx) => {
             styles[idx + 4] = { cellWidth: dateColumnWidth, halign: 'center', fontSize: 4 }
           })
           // TOTAL column
-          styles[daysInPeriod.length + 4] = { cellWidth: 10, halign: 'center', fontSize: 6 }
+          styles[daysInMonth + 4] = { cellWidth: 10, halign: 'center', fontSize: 6 }
           return styles
         })(),
         margin: { top: headerY + 42, left: 10, right: 10 },
         theme: 'striped',
         didParseCell: function(data) {
           // Make date columns and attendance cells smaller with better formatting
-          if (data.column.index >= 4 && data.column.index < daysInPeriod.length + 4) {
+          if (data.column.index >= 4 && data.column.index < daysInMonth + 4) {
             data.cell.styles.fontSize = 4
             data.cell.styles.cellPadding = 0.5
             data.cell.styles.valign = 'top'
@@ -407,19 +425,13 @@ const MasterRollReport = () => {
         }
       }
       
-      // Try using autoTable as a function first (for jspdf-autotable v5.x)
+      // Try using autoTable as a function first
       if (typeof autoTable === 'function') {
-        console.log('Using autoTable as function...')
         autoTable(doc, tableConfig)
       } else if (typeof doc.autoTable === 'function') {
-        console.log('Using doc.autoTable method...')
         doc.autoTable(tableConfig)
       } else {
-        console.error('autoTable is not available in any form')
-        alert('PDF export library not loaded. The autoTable plugin may not be properly imported. Please check the console and refresh the page.')
-        // Try to create a simple PDF without table as fallback
-        doc.text('PDF export requires jspdf-autotable plugin', 20, 50)
-        doc.save(`MusterRoll_${year}_${month}.pdf`)
+        alert('PDF export library not loaded. Please refresh the page and try again.')
         return
       }
       
@@ -432,7 +444,7 @@ const MasterRollReport = () => {
       doc.setFontSize(8)
       doc.setTextColor(100, 100, 100)
       doc.text('ND Enterprise - Workforce Management System', pageWidth / 2, footerY, { align: 'center' })
-      doc.text(`Generated on: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`, pageWidth / 2, footerY + 5, { align: 'center' })
+      doc.text(`Site: ${site?.name || 'N/A'} | Generated on: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`, pageWidth / 2, footerY + 5, { align: 'center' })
       
       // Page numbers
       const pageCount = doc.internal.getNumberOfPages()
@@ -443,15 +455,16 @@ const MasterRollReport = () => {
         doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, footerY + 5, { align: 'right' })
       }
       
-      console.log('Saving PDF...')
-      doc.save(`ND_Enterprise_MusterRoll_${year}_${month}.pdf`)
+      doc.save(`ND_Enterprise_${site?.name || 'Site'}_MusterRoll_${year}_${month}.pdf`)
     } catch (error) {
       console.error('Error exporting PDF:', error)
-      alert('Failed to export PDF. Please check the console for details.')
+      alert(`Failed to export PDF: ${error.message}`)
     }
   }
 
   const exportToExcel = () => {
+    const daysInMonth = getDaysInMonth()
+    
     // Prepare worksheet data
     const wsData = []
     
@@ -461,7 +474,7 @@ const MasterRollReport = () => {
       'NAME',
       'DESIGNATION',
       'SHIFT',
-      ...daysInPeriod.map(({ day }) => day.toString()),
+      ...Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString()),
       'TOTAL'
     ]
     wsData.push(headers)
@@ -473,7 +486,8 @@ const MasterRollReport = () => {
         row.name,
         row.designation,
         row.shift,
-        ...daysInPeriod.map(({ day }) => {
+        ...Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1
           if (row.attendance && row.attendance[day] && row.attendance[day].status === 'P') {
             return 'P'
           }
@@ -490,7 +504,7 @@ const MasterRollReport = () => {
       '',
       '',
       '',
-      ...daysInPeriod.map(({ day }) => dayTotals[day] || 0),
+      ...Array.from({ length: daysInMonth }, (_, i) => dayTotals[i + 1] || 0),
       grandTotal
     ]
     wsData.push(totalRow)
@@ -505,38 +519,50 @@ const MasterRollReport = () => {
       { wch: 25 }, // NAME
       { wch: 20 }, // DESIGNATION
       { wch: 10 }, // SHIFT
-      ...daysInPeriod.map(() => ({ wch: 5 })), // Day columns
+      ...Array.from({ length: daysInMonth }, () => ({ wch: 5 })), // Day columns
       { wch: 8 }   // TOTAL
     ]
     ws['!cols'] = colWidths
     
     XLSX.utils.book_append_sheet(wb, ws, 'Muster Roll')
-    XLSX.writeFile(wb, `MusterRoll_${year}_${month}.xlsx`)
+    XLSX.writeFile(wb, `${site?.name || 'Site'}_MusterRoll_${year}_${month}.xlsx`)
   }
 
   return (
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1>Muster Roll Report</h1>
-          <p className="page-subtitle">Form XVI 1 - January 2026</p>
+          <button 
+            className="btn-icon" 
+            onClick={() => navigate(`/sites/${id}`)}
+            style={{ marginBottom: '12px' }}
+          >
+            <FaArrowLeft style={{ marginRight: '8px' }} />
+            Back to Site Details
+          </button>
+          <h1>{site?.name || 'Site'} - Muster Roll Report</h1>
+          <p className="page-subtitle">
+            Form XVI 1 - {new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' })} {year}
+          </p>
         </div>
-            <div className="header-actions">
-              <button className="btn-icon" onClick={fetchMusterRollData} disabled={loading}>
-                <FaSync />
-                <span>Refresh</span>
-              </button>
-              <button className="btn-icon" onClick={exportToPDF} disabled={loading || filteredData.length === 0}>
-                <FaFilePdf />
-                <span>PDF</span>
-              </button>
-              <button className="btn-icon btn-icon-active" onClick={exportToExcel} disabled={loading || filteredData.length === 0}>
-                <FaFileExcel />
-                <span>Excel</span>
-              </button>
-            </div>
+        <div className="header-actions">
+          <button className="btn-icon" onClick={fetchMusterRollData} disabled={loading}>
+            <FaSync />
+            <span>Refresh</span>
+          </button>
+          <button className="btn-icon" onClick={exportToPDF} disabled={loading || filteredData.length === 0}>
+            <FaFilePdf />
+            <span>PDF</span>
+          </button>
+          <button className="btn-icon btn-icon-active" onClick={exportToExcel} disabled={loading || filteredData.length === 0}>
+            <FaFileExcel />
+            <span>Excel</span>
+          </button>
+        </div>
       </div>
+
       <div className="page-content">
+        {/* Filters */}
         <div className="content-section">
           <div className="muster-filters">
             <div className="search-bar">
@@ -550,23 +576,17 @@ const MasterRollReport = () => {
             </div>
             <div className="filter-row">
               <select className="form-input" value={month} onChange={(e) => setMonth(e.target.value)}>
-                <option value="01">January</option>
-                <option value="02">February</option>
-                <option value="03">March</option>
-                <option value="04">April</option>
-                <option value="05">May</option>
-                <option value="06">June</option>
-                <option value="07">July</option>
-                <option value="08">August</option>
-                <option value="09">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const monthNum = String(i + 1).padStart(2, '0')
+                  const monthName = new Date(2000, i, 1).toLocaleString('default', { month: 'long' })
+                  return <option key={monthNum} value={monthNum}>{monthName}</option>
+                })}
               </select>
               <select className="form-input" value={year} onChange={(e) => setYear(e.target.value)}>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
+                {Array.from({ length: 10 }, (_, i) => {
+                  const yearVal = new Date().getFullYear() - 5 + i
+                  return <option key={yearVal} value={yearVal}>{yearVal}</option>
+                })}
               </select>
               <input
                 type="date"
@@ -584,26 +604,34 @@ const MasterRollReport = () => {
               />
             </div>
           </div>
-          <div className="muster-summary">
-            <div className="summary-card">
-              <h4>Total Present Days</h4>
-              <p className="summary-value">{loading ? '...' : summary.totalPresentDays}</p>
-            </div>
-            <div className="summary-card">
-              <h4>Total Employees</h4>
-              <p className="summary-value">{loading ? '...' : summary.totalEmployees}</p>
-            </div>
-            <div className="summary-card">
-              <h4>Selected Period</h4>
-              <p className="summary-value">{summary.selectedPeriod || `${new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' })} ${year}`}</p>
-            </div>
+        </div>
+
+        {/* Summary */}
+        <div className="muster-summary">
+          <div className="summary-card">
+            <h4>Total Employees</h4>
+            <p className="summary-value">{summary.totalEmployees}</p>
           </div>
-          <div className="legend">
-            <span className="legend-item"><span className="legend-badge badge-p">P</span> Present</span>
-            <span className="legend-item"><span className="legend-badge badge-a">A</span> Absent</span>
-            <span className="legend-item"><span className="legend-badge badge-w">W</span> Week Off</span>
-            <span className="legend-item"><span className="legend-badge badge-n">-</span> No Record</span>
+          <div className="summary-card">
+            <h4>Total Present Days</h4>
+            <p className="summary-value">{summary.totalPresentDays}</p>
           </div>
+          <div className="summary-card">
+            <h4>Selected Period</h4>
+            <p className="summary-value">{summary.selectedPeriod || 'N/A'}</p>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="legend">
+          <span className="legend-item"><span className="legend-badge badge-p">P</span> Present</span>
+          <span className="legend-item"><span className="legend-badge badge-a">A</span> Absent</span>
+          <span className="legend-item"><span className="legend-badge badge-w">W</span> Week Off</span>
+          <span className="legend-item"><span className="legend-badge badge-n">-</span> No Record</span>
+        </div>
+
+        {/* Muster Roll Table */}
+        <div className="content-section">
           <div className="table-container">
             <table className="data-table muster-table">
               <thead>
@@ -612,48 +640,52 @@ const MasterRollReport = () => {
                   <th className="sticky-col">NAME</th>
                   <th className="sticky-col">DESIGNATION</th>
                   <th className="sticky-col">SHIFT</th>
-                  {daysInPeriod.map(({ day, date }) => (
-                    <th key={day} title={date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}>
-                      {day}
-                    </th>
-                  ))}
+                  {Array.from({ length: getDaysInMonth() }, (_, i) => {
+                    const day = i + 1
+                    const date = new Date(parseInt(year), parseInt(month) - 1, day)
+                    return (
+                      <th key={day} title={date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}>
+                        {day}
+                      </th>
+                    )
+                  })}
                   <th className="sticky-col total-col">TOTAL</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5 + daysInPeriod.length} className="empty-state">Loading...</td>
+                    <td colSpan={getDaysInMonth() + 5} className="empty-state">Loading...</td>
                   </tr>
                 ) : filteredData.length === 0 ? (
                   <tr>
-                    <td colSpan={5 + daysInPeriod.length} className="empty-state">No data available</td>
+                    <td colSpan={getDaysInMonth() + 5} className="empty-state">No attendance data found</td>
                   </tr>
                 ) : (
                   <>
-                    {filteredData.map((row, index) => (
-                    <tr key={row.employeeId || index}>
-                      <td className="sticky-col">{index + 1}</td>
-                      <td className="sticky-col">{row.name}</td>
-                      <td className="sticky-col">{row.designation}</td>
-                      <td className="sticky-col">{row.shift}</td>
-                      {daysInPeriod.map(({ day }) => (
-                        <td key={day} className="attendance-cell">
-                          {row.attendance && row.attendance[day] ? (
-                            <div className="attendance-content">
-                              <div className="attendance-status">{row.attendance[day].status}</div>
-                              {row.attendance[day].stepIn && (
-                                <div className="attendance-step-in">{row.attendance[day].stepIn}</div>
-                              )}
-                              {row.attendance[day].stepOut && (
-                                <div className="attendance-step-out">{row.attendance[day].stepOut}</div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="attendance-empty">-</span>
-                          )}
-                        </td>
-                      ))}
+                    {filteredData.map((emp, index) => (
+                      <tr key={emp.employeeId}>
+                        <td className="sticky-col">{index + 1}</td>
+                        <td className="sticky-col">{emp.name}</td>
+                        <td className="sticky-col">{emp.designation}</td>
+                        <td className="sticky-col">{emp.shift}</td>
+                        {Object.entries(emp.attendance).map(([day, att]) => (
+                          <td key={day} className="attendance-cell">
+                            {att.status === 'P' ? (
+                              <div className="attendance-content">
+                                <div className="attendance-status">{att.status}</div>
+                                {att.stepIn && (
+                                  <div className="attendance-step-in">{att.stepIn}</div>
+                                )}
+                                {att.stepOut && (
+                                  <div className="attendance-step-out">{att.stepOut}</div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="attendance-empty">-</span>
+                            )}
+                          </td>
+                        ))}
                         <td className="sticky-col total-col" style={{ fontWeight: 'bold', background: '#f9fafb' }}>
                           {rowTotals[index] || 0}
                         </td>
@@ -663,11 +695,14 @@ const MasterRollReport = () => {
                     <tr style={{ background: '#f3f4f6', fontWeight: 'bold' }}>
                       <td className="sticky-col" style={{ fontWeight: 'bold' }}>TOTAL</td>
                       <td className="sticky-col" style={{ fontWeight: 'bold' }} colSpan="3"></td>
-                      {daysInPeriod.map(({ day }) => (
-                        <td key={day} style={{ textAlign: 'center', fontWeight: 'bold', background: '#f3f4f6' }}>
-                          {dayTotals[day] || 0}
-                        </td>
-                      ))}
+                      {Array.from({ length: getDaysInMonth() }, (_, i) => {
+                        const day = i + 1
+                        return (
+                          <td key={day} style={{ textAlign: 'center', fontWeight: 'bold', background: '#f3f4f6' }}>
+                            {dayTotals[day] || 0}
+                          </td>
+                        )
+                      })}
                       <td className="sticky-col total-col" style={{ fontWeight: 'bold', background: '#e5e7eb' }}>
                         {grandTotal}
                       </td>
@@ -683,5 +718,5 @@ const MasterRollReport = () => {
   )
 }
 
-export default MasterRollReport
+export default SiteMasterRollReport
 

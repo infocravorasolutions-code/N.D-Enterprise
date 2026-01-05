@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { FaSync, FaFileExcel, FaFilePdf } from 'react-icons/fa'
-import { attendanceAPI } from '../services/api'
+import { useParams, useNavigate } from 'react-router-dom'
+import { FaSync, FaFileExcel, FaFilePdf, FaArrowLeft } from 'react-icons/fa'
+import { siteAPI, attendanceAPI } from '../services/api'
 import Pagination from '../components/Pagination'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -8,37 +9,52 @@ import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
 import './Page.css'
 
-const SummaryReport = () => {
-  const [fromDate, setFromDate] = useState('2025-12-25')
-  const [toDate, setToDate] = useState('2026-01-04')
+const SiteSummaryReport = () => {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [fromDate, setFromDate] = useState(new Date().toISOString().split('T')[0])
+  const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0])
   const [attendanceData, setAttendanceData] = useState([])
+  const [site, setSite] = useState(null)
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
   useEffect(() => {
+    fetchSiteData()
     fetchAttendanceSummary()
-  }, [fromDate, toDate])
+  }, [id, fromDate, toDate])
+
+  const fetchSiteData = async () => {
+    try {
+      const response = await siteAPI.get(id)
+      setSite(response.data)
+    } catch (error) {
+      console.error('Error fetching site:', error)
+    }
+  }
 
   const fetchAttendanceSummary = async () => {
     try {
       setLoading(true)
-      // Fetch data for each date in the range
+      // Fetch site-specific attendance for each date in the range
       const dates = getDatesBetween(fromDate, toDate)
       const summaryData = []
       
       for (const date of dates) {
         try {
-          const [morningRes, eveningRes, nightRes] = await Promise.all([
-            attendanceAPI.getSummary({ date, shift: 'morning' }).catch(() => ({ presentEmployees: 0 })),
-            attendanceAPI.getSummary({ date, shift: 'evening' }).catch(() => ({ presentEmployees: 0 })),
-            attendanceAPI.getSummary({ date, shift: 'night' }).catch(() => ({ presentEmployees: 0 }))
-          ])
+          // Get site attendance for this date
+          const attendanceResponse = await siteAPI.getAttendance(id, {
+            startDate: date,
+            endDate: date
+          })
           
-          // Backend returns presentEmployees field
-          const morning = morningRes.presentEmployees || 0
-          const evening = eveningRes.presentEmployees || 0
-          const night = nightRes.presentEmployees || 0
+          const attendanceRecords = attendanceResponse.data || []
+          
+          // Group by shift
+          const morning = attendanceRecords.filter(r => r.shift === 'morning').length
+          const evening = attendanceRecords.filter(r => r.shift === 'evening').length
+          const night = attendanceRecords.filter(r => r.shift === 'night').length
           
           summaryData.push({
             date: formatDateForDisplay(date),
@@ -49,7 +65,6 @@ const SummaryReport = () => {
           })
         } catch (error) {
           console.error(`Error fetching data for ${date}:`, error)
-          // Add empty row for this date
           summaryData.push({
             date: formatDateForDisplay(date),
             morning: 0,
@@ -103,12 +118,20 @@ const SummaryReport = () => {
     return diffDays
   }
 
-  // Pagination calculations
+  // Pagination
   const totalItems = attendanceData.length
   const totalPages = Math.ceil(totalItems / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedData = attendanceData.slice(startIndex, endIndex)
+
+  // Calculate totals
+  const totals = attendanceData.reduce((acc, item) => ({
+    morning: acc.morning + item.morning,
+    evening: acc.evening + item.evening,
+    night: acc.night + item.night,
+    total: acc.total + item.total
+  }), { morning: 0, evening: 0, night: 0, total: 0 })
 
   // Reset to page 1 when date range changes
   useEffect(() => {
@@ -165,6 +188,16 @@ const SummaryReport = () => {
       doc.setFontSize(10)
       doc.setFont(undefined, 'normal')
       doc.text('Workforce Management System', companyNameX, headerY + 15)
+      
+      // Site Name
+      doc.setFontSize(11)
+      doc.setFont(undefined, 'bold')
+      doc.text(`Site: ${site?.name || 'N/A'}`, companyNameX, headerY + 22)
+      if (site?.location) {
+        doc.setFontSize(9)
+        doc.setFont(undefined, 'normal')
+        doc.text(`Location: ${site.location}`, companyNameX, headerY + 28)
+      }
       
       // Report Title (centered)
       doc.setFontSize(16)
@@ -235,7 +268,7 @@ const SummaryReport = () => {
         doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, footerY + 5, { align: 'right' })
       }
       
-      doc.save(`ND_Enterprise_SummaryReport_${fromDate}_${toDate}.pdf`)
+      doc.save(`ND_Enterprise_${site?.name || 'Site'}_SummaryReport_${fromDate}_${toDate}.pdf`)
     } catch (error) {
       console.error('Error exporting PDF:', error)
       alert(`Failed to export PDF: ${error.message}`)
@@ -274,14 +307,22 @@ const SummaryReport = () => {
     ]
     
     XLSX.utils.book_append_sheet(wb, ws, 'Summary Report')
-    XLSX.writeFile(wb, `SummaryReport_${fromDate}_${toDate}.xlsx`)
+    XLSX.writeFile(wb, `${site?.name || 'Site'}_SummaryReport_${fromDate}_${toDate}.xlsx`)
   }
 
   return (
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1>Summary Report</h1>
+          <button 
+            className="btn-icon" 
+            onClick={() => navigate(`/sites/${id}`)}
+            style={{ marginBottom: '12px' }}
+          >
+            <FaArrowLeft style={{ marginRight: '8px' }} />
+            Back to Site Details
+          </button>
+          <h1>{site?.name || 'Site'} - Summary Report</h1>
           <p className="page-subtitle">View attendance count by date range for all shifts</p>
         </div>
       </div>
@@ -347,27 +388,27 @@ const SummaryReport = () => {
                     <th>Total</th>
                   </tr>
                 </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="5" className="empty-state">Loading...</td>
-                  </tr>
-                ) : attendanceData.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="empty-state">No attendance data available</td>
-                  </tr>
-                ) : (
-                  paginatedData.map((row, index) => (
-                    <tr key={index}>
-                      <td>{row.date}</td>
-                      <td>{row.morning}P</td>
-                      <td>{row.evening}P</td>
-                      <td>{row.night}P</td>
-                      <td>{row.total} Total Present</td>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan="5" className="empty-state">Loading...</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
+                  ) : attendanceData.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="empty-state">No attendance data available</td>
+                    </tr>
+                  ) : (
+                    paginatedData.map((row, index) => (
+                      <tr key={index}>
+                        <td>{row.date}</td>
+                        <td>{row.morning}P</td>
+                        <td>{row.evening}P</td>
+                        <td>{row.night}P</td>
+                        <td>{row.total} Total Present</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
               </table>
             </div>
             {attendanceData.length > 0 && (
@@ -390,5 +431,5 @@ const SummaryReport = () => {
   )
 }
 
-export default SummaryReport
+export default SiteSummaryReport
 

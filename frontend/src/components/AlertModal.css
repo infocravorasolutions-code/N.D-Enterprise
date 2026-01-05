@@ -1,0 +1,141 @@
+.alert-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.alert-modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: slideUp 0.3s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alert-modal-body {
+  padding: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.alert-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.alert-icon-success {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.alert-icon-error {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.alert-icon-warning {
+  background: #fffbeb;
+  color: #f59e0b;
+}
+
+.alert-icon-info {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.alert-modal-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 8px 0;
+}
+
+.alert-modal-message {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.alert-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.alert-modal-btn {
+  min-width: 80px;
+  padding: 10px 24px;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .alert-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .alert-modal-content {
+    max-width: 100%;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .alert-modal-body {
+    padding: 20px;
+  }
+
+  .alert-modal-footer {
+    padding: 16px 20px;
+  }
+
+  .alert-modal-footer .alert-modal-btn {
+    width: 100%;
+  }
+}
+

@@ -110,6 +110,18 @@ export const employeeAPI = {
   delete: (id) => {
     return apiCall(`/employee/${id}`, { method: 'DELETE' });
   },
+  
+  // Manager-specific employee creation
+  createByManager: (employeeData, imageFile) => {
+    const formData = new FormData();
+    Object.keys(employeeData).forEach(key => {
+      formData.append(key, employeeData[key]);
+    });
+    if (imageFile) {
+      formData.append('image', imageFile);
+    }
+    return apiCallFormData('/employee/manager', formData);
+  },
 };
 
 // Manager/Supervisor APIs
@@ -207,6 +219,26 @@ export const attendanceAPI = {
       body: JSON.stringify(data),
     });
   },
+  
+  update: (attendanceId, data, imageFile) => {
+    if (imageFile) {
+      const formData = new FormData();
+      Object.keys(data).forEach(key => {
+        formData.append(key, data[key]);
+      });
+      formData.append('stepInImage', imageFile);
+      return apiCallFormData(`/attendence/${attendanceId}`, formData, 'PUT');
+    } else {
+      return apiCall(`/attendence/${attendanceId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    }
+  },
+  
+  delete: (attendanceId) => {
+    return apiCall(`/attendence/${attendanceId}`, { method: 'DELETE' });
+  },
 };
 
 // Admin APIs
@@ -245,12 +277,61 @@ export const adminAPI = {
   },
 };
 
+// Site/Event APIs
+export const siteAPI = {
+  getAll: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/site/all${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  get: (id) => {
+    return apiCall(`/site/${id}`);
+  },
+  
+  create: (siteData) => {
+    return apiCall('/site/', {
+      method: 'POST',
+      body: JSON.stringify(siteData),
+    });
+  },
+  
+  update: (id, siteData) => {
+    return apiCall(`/site/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(siteData),
+    });
+  },
+  
+  delete: (id) => {
+    return apiCall(`/site/${id}`, { method: 'DELETE' });
+  },
+  
+  getStats: (id) => {
+    return apiCall(`/site/${id}/stats`);
+  },
+  
+  getEmployees: (id, params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/site/${id}/employees${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  getManagers: (id) => {
+    return apiCall(`/site/${id}/managers`);
+  },
+  
+  getAttendance: (id, params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/site/${id}/attendance${queryString ? `?${queryString}` : ''}`);
+  },
+};
+
 export default {
   employeeAPI,
   managerAPI,
   dashboardAPI,
   attendanceAPI,
   adminAPI,
+  siteAPI,
   setToken,
   removeToken,
 };

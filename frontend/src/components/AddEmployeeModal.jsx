@@ -4,7 +4,7 @@ import Modal from './Modal'
 import { managerAPI } from '../services/api'
 import './AddEmployeeModal.css'
 
-const AddEmployeeModal = ({ isOpen, onClose, onSave, employee }) => {
+const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false, siteId = null }) => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -20,7 +20,10 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee }) => {
 
   useEffect(() => {
     if (isOpen) {
-      fetchManagers()
+      // Only fetch managers if not a manager (managers can't assign to other managers)
+      if (!isManager) {
+        fetchManagers()
+      }
       // If editing, populate form with employee data
       if (employee) {
         setFormData({
@@ -60,7 +63,15 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee }) => {
   const fetchManagers = async () => {
     try {
       setLoadingManagers(true)
-      const response = await managerAPI.getAll()
+      let response
+      if (siteId) {
+        // If siteId is provided, fetch only managers for that site
+        const { siteAPI } = await import('../services/api')
+        response = await siteAPI.getManagers(siteId)
+      } else {
+        // Otherwise, fetch all managers
+        response = await managerAPI.getAll()
+      }
       if (response && response.data) {
         setManagers(response.data)
       }
@@ -207,24 +218,26 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee }) => {
             />
           </div>
 
-          <div className="form-row">
-            <label className="form-label">Manager</label>
-            <select
-              name="manager"
-              className="form-input"
-              value={formData.manager}
-              onChange={handleChange}
-              required
-              disabled={loadingManagers}
-            >
-              <option value="">Select a manager</option>
-              {managers.map((manager) => (
-                <option key={manager._id} value={manager._id}>
-                  {manager.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!isManager && (
+            <div className="form-row">
+              <label className="form-label">Manager</label>
+              <select
+                name="manager"
+                className="form-input"
+                value={formData.manager}
+                onChange={handleChange}
+                required
+                disabled={loadingManagers}
+              >
+                <option value="">Select a manager</option>
+                {managers.map((manager) => (
+                  <option key={manager._id} value={manager._id}>
+                    {manager.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="form-row">
             <label className="form-label">Shift</label>

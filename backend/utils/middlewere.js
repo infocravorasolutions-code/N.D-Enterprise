@@ -30,6 +30,7 @@ export const authenticateUser = async (req, res, next) => {
       id: user._id,
       role: user.role || "manager", // default for manager
       userType: decoded.userType,
+      siteId: user.siteId || null, // Include siteId for site managers
     };
 
     // Read-only admins can only do GET

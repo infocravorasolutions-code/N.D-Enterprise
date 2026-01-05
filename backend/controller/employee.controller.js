@@ -1,4 +1,5 @@
 import Employee from "../models/employee.models.js";
+import Manager from "../models/manager.models.js";
 
 // Controller: createEmployee
 // export const createEmployee = async (req, res) => {
@@ -25,7 +26,7 @@ import Employee from "../models/employee.models.js";
 
 export const createEmployee = async (req, res) => {
   try {
-    const { email, name, mobile, address, managerId, shift, createdBy, isCreatedByAdmin } = req.body;
+    const { email, name, mobile, address, managerId, shift, createdBy, isCreatedByAdmin, siteId } = req.body;
 
     console.log('[CREATE EMPLOYEE] Payload:', req.body);
 
@@ -48,7 +49,8 @@ export const createEmployee = async (req, res) => {
       shift,
       createdBy,
       isCreatedByAdmin,
-      image // optional image field
+      image, // optional image field
+      siteId: siteId || null // optional siteId field
     });
 
     await newEmployee.save();
@@ -127,18 +129,26 @@ export const getEmployees = async (req, res) => {
     // Build aggregation pipeline
     const pipeline = [];
     
+    // Handle managers: if site manager (has siteId), show employees for that site; if global manager, show global employees
        if(userData.userType=="manager"){
-         pipeline.push({ $match: { managerId: userData.id } });
+        if(userData.siteId) {
+            // Site manager: show employees for their site
+            const mongoose = (await import("mongoose")).default;
+            const siteObjectId = new mongoose.Types.ObjectId(userData.siteId);
+            pipeline.push({ $match: { managerId: userData.id, siteId: siteObjectId } });
+        } else {
+            // Global manager: show global employees (siteId: null)
+            pipeline.push({ $match: { managerId: userData.id, siteId: null } });
+        }
+    } else {
+        // Admin: show only global employees (siteId: null)
+        pipeline.push({ $match: { siteId: null } });
     }
-    
 
     // Filter by shift if isWorking param is provided
     if (typeof isWorking !== "undefined") {
-
         pipeline.push({ $match: { isWorking: isWorking } });
-      
     }
-
  
     if(shift){
          pipeline.push({ $match: { shift: shift } });
@@ -187,7 +197,7 @@ export const getEmployees = async (req, res) => {
 // Manager-specific employee creation
 export const createEmployeeByManager = async (req, res) => {
     try {
-        const { email, name, mobile, address, shift } = req.body;
+        const { email, name, mobile, address, shift, siteId } = req.body;
         const user = req.user;
         // Log the incoming payload and clarify optional fields
         console.log('[CREATE EMPLOYEE BY MANAGER] Payload:', req.body);
@@ -207,6 +217,10 @@ export const createEmployeeByManager = async (req, res) => {
         const managerId = user.id;
         const createdBy = user.id;
         const isCreatedByAdmin = false;
+        
+        // If siteId not provided, use manager's siteId from req.user (set by middleware)
+        let finalSiteId = siteId || user.siteId || null;
+        
         const newEmployee = new Employee({ 
             email, 
             name, 
@@ -216,7 +230,8 @@ export const createEmployeeByManager = async (req, res) => {
             shift, 
             createdBy, 
             isCreatedByAdmin,
-            image // optional image field
+            image, // optional image field
+            siteId: finalSiteId || null // optional siteId field
         });
         await newEmployee.save();
         res.status(201).json({ message: "Employee created successfully", employee: newEmployee });

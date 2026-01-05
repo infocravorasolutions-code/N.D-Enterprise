@@ -63,6 +63,11 @@ const attendanceSchema = new Schema({
   }, 
   note: {
     type: String // Optional: note for attendance
+  },
+  siteId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Site',
+    default: null // null means global attendance, not assigned to any site
   }
 }, {
   timestamps: true

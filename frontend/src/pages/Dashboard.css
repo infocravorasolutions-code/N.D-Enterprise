@@ -1,6 +1,6 @@
 /* Greeting Card */
 .greeting-card {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
@@ -20,14 +20,14 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: #10b981;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
 .greeting-text {
@@ -42,7 +42,7 @@
   gap: 8px;
   font-size: 20px;
   font-weight: 600;
-  color: #1e40af;
+  color: #065f46;
 }
 
 .greeting-title svg {
@@ -64,7 +64,7 @@
 .current-time {
   font-size: 28px;
   font-weight: 700;
-  color: #1e40af;
+  color: #065f46;
   font-variant-numeric: tabular-nums;
 }
 
@@ -261,6 +261,9 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
+  .page-container {
+    padding: 16px;
+  }
   .greeting-card {
     flex-direction: column;
     align-items: flex-start;
@@ -272,7 +275,7 @@
     text-align: left;
     width: 100%;
     padding-top: 16px;
-    border-top: 1px solid rgba(59, 130, 246, 0.2);
+    border-top: 1px solid rgba(16, 185, 129, 0.2);
   }
 
   .current-time {
@@ -334,6 +337,387 @@
   .quick-action-content p {
     font-size: 12px;
   }
+
+  /* Show mobile cards, hide desktop table - handled by base CSS rules above */
+
+  /* Mobile section header */
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .section-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .section-actions .btn-secondary {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    font-size: 13px;
+    justify-content: center;
+  }
+
+  /* Mobile stats grid */
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+
+  .stat-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
+  /* Mobile content section */
+  .content-section {
+    padding: 16px;
+  }
+
+  .section-title {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .section-subtitle {
+    font-size: 13px;
+  }
+}
+
+/* Section Header with Actions */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.section-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.section-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-secondary {
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Employee Photo in Table */
+.employee-photo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  flex-shrink: 0;
+}
+
+.employee-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.employee-photo svg {
+  width: 20px;
+  height: 20px;
+  color: #9ca3af;
+}
+
+/* Clock Out Button */
+.btn-clock-out {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s;
+  min-height: 36px;
+}
+
+.btn-clock-out:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+}
+
+.btn-clock-out:active {
+  transform: translateY(0);
+}
+
+/* Clock In Button */
+.btn-clock-in {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s;
+  min-height: 36px;
+}
+
+.btn-clock-in:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.btn-clock-in:active {
+  transform: translateY(0);
+}
+
+/* Desktop/Mobile Visibility - Base styles */
+.table-container.desktop-only {
+  display: block;
+}
+
+.mobile-employee-cards.mobile-only {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Hide desktop table on mobile, show mobile cards */
+@media (max-width: 768px) {
+  .table-container.desktop-only {
+    display: none !important;
+  }
+
+  .mobile-employee-cards.mobile-only {
+    display: flex !important;
+  }
+}
+
+/* Mobile Employee Cards - Layout styles */
+.mobile-employee-cards {
+  flex-direction: column;
+  gap: 16px;
+}
+
+.employee-card-mobile {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.employee-card-mobile:active {
+  transform: scale(0.98);
+}
+
+.employee-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.employee-card-photo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  flex-shrink: 0;
+}
+
+.employee-card-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.employee-card-photo svg {
+  width: 28px;
+  height: 28px;
+  color: #9ca3af;
+}
+
+.employee-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.employee-card-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.employee-card-email {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.employee-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.employee-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.btn-clock-out-mobile {
+  width: 100%;
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  min-height: 48px;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-clock-out-mobile:hover {
+  background: #b91c1c;
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+}
+
+.btn-clock-out-mobile:active {
+  background: #991b1b;
+  transform: scale(0.98);
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
+}
+
+/* Clock In Button Mobile */
+.btn-clock-in-mobile {
+  width: 100%;
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  min-height: 48px;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-clock-in-mobile:hover {
+  background: #059669;
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.btn-clock-in-mobile:active {
+  background: #047857;
+  transform: scale(0.98);
+  box-shadow: 0 1px 2px rgba(16, 185, 129, 0.2);
 }
 
 /* Extra small devices */
@@ -358,6 +742,58 @@
 
   .chart-y-axis {
     display: none;
+  }
+
+  .section-header {
+    flex-direction: column;
+  }
+
+  .section-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .btn-secondary {
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+  }
+
+  /* Mobile employee cards adjustments */
+  .employee-card-mobile {
+    padding: 14px;
+  }
+
+  .employee-card-photo {
+    width: 48px;
+    height: 48px;
+  }
+
+  .employee-card-name {
+    font-size: 15px;
+  }
+
+  .employee-card-email {
+    font-size: 12px;
+  }
+
+  .btn-clock-out-mobile,
+  .btn-clock-in-mobile {
+    padding: 12px 16px;
+    font-size: 15px;
+    min-height: 44px;
+  }
+
+  .content-section {
+    padding: 12px;
+  }
+
+  .employee-card-mobile {
+    padding: 12px;
+  }
+
+  .greeting-card {
+    padding: 16px;
   }
 }
 

@@ -1,0 +1,362 @@
+.clock-in-modal {
+  max-width: 700px;
+  background: white;
+}
+
+.clock-in-modal .form-group {
+  margin-bottom: 20px;
+}
+
+.clock-in-modal .form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.clock-in-modal .form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.clock-in-modal .form-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.clock-in-modal .form-input select {
+  cursor: pointer;
+}
+
+.clock-in-modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.clock-in-modal .btn-primary {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clock-in-modal .btn-primary:hover {
+  background: #7c3aed;
+}
+
+.clock-in-modal .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.clock-in-modal .btn-secondary {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clock-in-modal .btn-secondary:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+  .clock-in-modal .modal-footer {
+    padding: 20px;
+    flex-direction: column-reverse;
+  }
+
+  .clock-in-modal .modal-footer .btn-primary,
+  .clock-in-modal .modal-footer .btn-secondary {
+    width: 100%;
+  }
+}
+
+.clock-in-photo-section {
+  margin-bottom: 24px;
+}
+
+.photo-capture-area {
+  width: 100%;
+  min-height: 300px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.photo-capture-area:hover {
+  border-color: #8b5cf6;
+  background: #f3f4f6;
+}
+
+.photo-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px;
+  width: 100%;
+}
+
+.photo-placeholder {
+  text-align: center;
+  padding: 30px;
+  width: 100%;
+  max-width: 300px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.photo-placeholder:hover {
+  border-color: #8b5cf6;
+  background: #f9fafb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.camera-icon {
+  font-size: 48px;
+  color: #9ca3af;
+  margin-bottom: 12px;
+  transition: color 0.2s;
+}
+
+.photo-placeholder:hover .camera-icon {
+  color: #8b5cf6;
+}
+
+.photo-placeholder p {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.photo-placeholder:hover p {
+  color: #8b5cf6;
+}
+
+.photo-divider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 300px;
+  margin: 10px 0;
+}
+
+.photo-divider::before,
+.photo-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.photo-divider span {
+  padding: 0 16px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.camera-preview {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+}
+
+.camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.capture-btn {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+}
+
+.capture-btn:hover {
+  background: #7c3aed;
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.photo-preview-area {
+  position: relative;
+  width: 100%;
+  min-height: 300px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #e5e7eb;
+}
+
+.captured-photo {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 400px;
+  object-fit: contain;
+  background: #000;
+}
+
+.retake-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.retake-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.auto-detected-location {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #ecfdf5;
+  border: 1px solid #10b981;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #065f46;
+}
+
+.check-icon {
+  color: #10b981;
+  font-weight: bold;
+}
+
+.btn-redetect {
+  margin-top: 8px;
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-redetect:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.btn-redetect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.coordinates-info {
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-family: 'Courier New', monospace;
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .clock-in-modal {
+    max-width: 100%;
+  }
+
+  .photo-capture-area,
+  .camera-preview {
+    min-height: 250px;
+  }
+
+  .photo-options {
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .photo-placeholder {
+    padding: 24px;
+    max-width: 100%;
+  }
+
+  .photo-divider {
+    max-width: 100%;
+    margin: 8px 0;
+  }
+
+  .capture-btn {
+    bottom: 12px;
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+}
+

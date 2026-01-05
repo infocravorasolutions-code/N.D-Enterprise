@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { FaEdit, FaTrash, FaTimes, FaCalendarAlt, FaClock, FaCheckCircle, FaMapMarkerAlt, FaFilePdf, FaFileExcel } from 'react-icons/fa'
-import { attendanceAPI, employeeAPI, managerAPI } from '../services/api'
-import Pagination from '../components/Pagination'
+import { useParams, useNavigate } from 'react-router-dom'
+import { FaArrowLeft, FaCalendarAlt, FaClock, FaMapMarkerAlt, FaCheckCircle, FaTimes, FaEdit, FaTrash, FaFilePdf, FaFileExcel } from 'react-icons/fa'
+import { siteAPI, attendanceAPI, employeeAPI, managerAPI } from '../services/api'
 import AlertModal from '../components/AlertModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { useAlert, useConfirm } from '../hooks/useModal'
@@ -11,20 +11,20 @@ import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
 import './Page.css'
 
-const AttendanceReports = () => {
-  const [fromDate, setFromDate] = useState('')
-  const [toDate, setToDate] = useState('')
+const SiteAttendance = () => {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [attendance, setAttendance] = useState([])
+  const [site, setSite] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [selectedEmployee, setSelectedEmployee] = useState('')
   const [selectedManager, setSelectedManager] = useState('')
-  const [selectedShift, setSelectedShift] = useState('')
+  const [shiftFilter, setShiftFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
-  const [attendanceRecords, setAttendanceRecords] = useState([])
   const [employees, setEmployees] = useState([])
   const [managers, setManagers] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(10)
   const [editingRecord, setEditingRecord] = useState(null)
   const [editFormData, setEditFormData] = useState({
     shift: '',
@@ -40,111 +40,91 @@ const AttendanceReports = () => {
   const { confirmState, showConfirm, hideConfirm } = useConfirm()
 
   useEffect(() => {
-    fetchEmployees()
-    fetchManagers()
-  }, [])
+    fetchSiteData()
+    fetchSiteEmployees()
+    fetchSiteManagers()
+  }, [id])
 
   useEffect(() => {
-    if (fromDate && toDate) {
-      fetchAttendanceRecords()
-    }
-  }, [fromDate, toDate, selectedEmployee, selectedManager, selectedShift, statusFilter])
+    fetchAttendance()
+    setSelectedRecords(new Set()) // Clear selections when filters change
+  }, [id, startDate, endDate, selectedEmployee, selectedManager, shiftFilter, statusFilter])
 
-  const fetchEmployees = async () => {
+  const fetchSiteData = async () => {
     try {
-      const response = await employeeAPI.getAll()
-      if (response && response.data) {
-        setEmployees(response.data)
-      }
+      const response = await siteAPI.get(id)
+      setSite(response.data)
     } catch (error) {
-      console.error('Error fetching employees:', error)
+      console.error('Error fetching site:', error)
     }
   }
 
-  const fetchManagers = async () => {
+  const fetchSiteEmployees = async () => {
     try {
-      const response = await managerAPI.getAll()
-      const managersList = Array.isArray(response) ? response : (response?.data || [])
-      setManagers(managersList)
+      const response = await siteAPI.getEmployees(id)
+      setEmployees(response.data || [])
     } catch (error) {
-      console.error('Error fetching managers:', error)
+      console.error('Error fetching site employees:', error)
     }
   }
 
-  const fetchAttendanceRecords = async () => {
+  const fetchSiteManagers = async () => {
+    try {
+      const response = await siteAPI.getManagers(id)
+      setManagers(response.data || [])
+    } catch (error) {
+      console.error('Error fetching site managers:', error)
+    }
+  }
+
+  const fetchAttendance = async () => {
     try {
       setLoading(true)
-      setError(null)
-      
-      const params = {
-        fromDate,
-        toDate
+      const params = {}
+      if (startDate) {
+        params.startDate = startDate
       }
-      
-      // Add manager filter if selected
-      if (selectedManager) {
-        params.managerId = selectedManager
+      if (endDate) {
+        params.endDate = endDate
       }
-      
-      // Add employee filter if selected
+      if (shiftFilter) {
+        params.shift = shiftFilter
+      }
       if (selectedEmployee) {
         params.employeeId = selectedEmployee
       }
+      const response = await siteAPI.getAttendance(id, params)
+      let records = response.data || []
       
-      // Get all attendance records with filters
-      const response = await attendanceAPI.getAll(params)
-      let records = response.data || response.attendance || []
-      
-      // Filter by shift (client-side since backend doesn't support shift filter directly)
-      if (selectedShift) {
-        records = records.filter(record => record.shift === selectedShift)
+      // Client-side filtering for manager (backend doesn't support managerId filter)
+      if (selectedManager) {
+        records = records.filter(record => {
+          const managerId = record.managerId?._id || record.managerId
+          return String(managerId) === String(selectedManager)
+        })
       }
       
-      // Filter by status
+      // Client-side filtering for status
       if (statusFilter !== 'All') {
         records = records.filter(record => {
-          if (statusFilter === 'Present') return record.stepIn && record.stepOut
-          if (statusFilter === 'Absent') return !record.stepIn
+          const status = getStatus(record)
+          if (statusFilter === 'Present') return status === 'Present'
+          if (statusFilter === 'Absent') return status === 'Absent'
           if (statusFilter === 'Late') {
-            return record.stepIn && isLate(record.stepIn, record.shift)
+            return status === 'Present' && isLate(record.stepIn, record.shift)
           }
-          if (statusFilter === 'Working') {
-            return record.stepIn && !record.stepOut
-          }
+          if (statusFilter === 'Working') return status === 'Working'
           return true
         })
       }
       
-      setAttendanceRecords(records)
-    } catch (err) {
-      setError(err.message || 'Failed to fetch attendance records')
-      console.error('Error fetching attendance records:', err)
+      setAttendance(records)
+    } catch (error) {
+      console.error('Error fetching site attendance:', error)
+      showAlert('Failed to fetch attendance. Please try again.', 'Error', 'error')
     } finally {
       setLoading(false)
     }
-  }
-
-  const isLate = (stepInTime, shift) => {
-    const stepIn = new Date(stepInTime)
-    const hour = stepIn.getHours()
-    
-    if (shift === 'morning' && hour > 7) return true
-    if (shift === 'evening' && hour > 15) return true
-    if (shift === 'night' && hour > 23) return true
-    
-    return false
-  }
-
-  const formatDateTime = (dateString) => {
-    if (!dateString) return '-'
-    const date = new Date(dateString)
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
   }
 
   const formatDate = (dateString) => {
@@ -169,18 +149,404 @@ const AttendanceReports = () => {
     return `${hours}h ${minutes}m`
   }
 
+  const getStatus = (record) => {
+    if (!record.stepIn) return 'Absent'
+    if (!record.stepOut) return 'Working'
+    return 'Present'
+  }
+
+  const isLate = (stepInTime, shift) => {
+    if (!stepInTime) return false
+    const stepIn = new Date(stepInTime)
+    const hour = stepIn.getHours()
+    
+    if (shift === 'morning' && hour > 7) return true
+    if (shift === 'evening' && hour > 15) return true
+    if (shift === 'night' && hour > 23) return true
+    
+    return false
+  }
+
+  // Calculate counts
+  const calculateCounts = () => {
+    const counts = {
+      total: attendance.length,
+      present: 0,
+      absent: 0,
+      late: 0,
+      working: 0
+    }
+
+    attendance.forEach(record => {
+      const status = getStatus(record)
+      if (status === 'Present') {
+        counts.present++
+        if (isLate(record.stepIn, record.shift)) {
+          counts.late++
+        }
+      } else if (status === 'Absent') {
+        counts.absent++
+      } else if (status === 'Working') {
+        counts.working++
+      }
+    })
+
+    return counts
+  }
+
+  const counts = calculateCounts()
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-'
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const exportToPDF = async () => {
+    try {
+      if (!attendance || attendance.length === 0) {
+        showAlert('No data available to export', 'Export Error', 'warning')
+        return
+      }
+
+      const doc = new jsPDF('landscape')
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      
+      // Company Branding Header
+      const headerY = 10
+      const logoSize = 20
+      
+      // Add logo if available
+      try {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.src = logoImage
+        
+        await new Promise((resolve) => {
+          img.onload = () => {
+            try {
+              doc.addImage(img, 'JPEG', 15, headerY, logoSize, logoSize * (img.height / img.width))
+              resolve()
+            } catch (e) {
+              console.warn('Could not add logo to PDF:', e)
+              resolve()
+            }
+          }
+          img.onerror = () => {
+            console.warn('Logo image failed to load')
+            resolve()
+          }
+          setTimeout(() => resolve(), 2000)
+        })
+      } catch (e) {
+        console.warn('Logo loading error:', e)
+      }
+      
+      // Company Name and Details
+      const companyNameX = logoSize + 25
+      doc.setFontSize(18)
+      doc.setFont(undefined, 'bold')
+      doc.text('ND ENTERPRISE', companyNameX, headerY + 8)
+      
+      doc.setFontSize(10)
+      doc.setFont(undefined, 'normal')
+      doc.text('Workforce Management System', companyNameX, headerY + 15)
+      
+      // Site Name
+      doc.setFontSize(11)
+      doc.setFont(undefined, 'bold')
+      doc.text(`Site: ${site?.name || 'N/A'}`, companyNameX, headerY + 22)
+      if (site?.location) {
+        doc.setFontSize(9)
+        doc.setFont(undefined, 'normal')
+        doc.text(`Location: ${site.location}`, companyNameX, headerY + 28)
+      }
+      
+      // Report Title (centered)
+      doc.setFontSize(16)
+      doc.setFont(undefined, 'bold')
+      doc.text('ATTENDANCE REPORT', pageWidth / 2, headerY + 25, { align: 'center' })
+      
+      // Period
+      doc.setFontSize(11)
+      doc.setFont(undefined, 'normal')
+      const dateRange = startDate && endDate 
+        ? `Period: ${startDate.split('-').reverse().join('-')} to ${endDate.split('-').reverse().join('-')}`
+        : 'All Records'
+      doc.text(dateRange, pageWidth / 2, headerY + 32, { align: 'center' })
+
+      // Filter info
+      let filterInfo = []
+      if (selectedEmployee) {
+        const emp = employees.find(e => e._id === selectedEmployee)
+        if (emp) filterInfo.push(`Employee: ${emp.name}`)
+      }
+      if (selectedManager) {
+        const mgr = managers.find(m => m._id === selectedManager)
+        if (mgr) filterInfo.push(`Manager: ${mgr.name}`)
+      }
+      if (shiftFilter) {
+        const shiftLabel = shiftFilter === 'morning' ? 'Morning (7 AM - 3 PM)' 
+          : shiftFilter === 'evening' ? 'Evening (3 PM - 11 PM)' 
+          : 'Night (11 PM - 7 AM)'
+        filterInfo.push(`Shift: ${shiftLabel}`)
+      }
+      if (statusFilter !== 'All') {
+        filterInfo.push(`Status: ${statusFilter}`)
+      }
+      
+      if (filterInfo.length > 0) {
+        doc.setFontSize(9)
+        doc.text(filterInfo.join(' | '), pageWidth / 2, headerY + 38, { align: 'center' })
+      }
+      
+      // Add a line separator
+      doc.setDrawColor(139, 92, 246)
+      doc.setLineWidth(0.5)
+      doc.line(15, headerY + 43, pageWidth - 15, headerY + 43)
+
+      // Prepare table data
+      const tableData = attendance.map(record => {
+        const employeeName = record.employeeId?.name || 'Unknown'
+        const managerName = record.managerId?.name || 'N/A'
+        const shift = record.shift ? record.shift.charAt(0).toUpperCase() + record.shift.slice(1) : 'N/A'
+        const stepIn = record.stepIn ? formatDateTime(record.stepIn) : 'Not stepped in'
+        const stepOut = record.stepOut ? formatDateTime(record.stepOut) : 'Not stepped out'
+        const duration = calculateDuration(record.stepIn, record.stepOut)
+        const location = record.stepInAddress || record.address || 'N/A'
+        const status = getStatus(record)
+
+        return [
+          employeeName,
+          managerName,
+          shift,
+          stepIn,
+          stepOut,
+          duration,
+          location.length > 30 ? location.substring(0, 30) + '...' : location,
+          status
+        ]
+      })
+
+      // Table headers
+      const headers = [
+        'Employee',
+        'Manager',
+        'Shift',
+        'Step In',
+        'Step Out',
+        'Duration',
+        'Location',
+        'Status'
+      ]
+
+      // Try using autoTable as a function first
+      if (typeof autoTable === 'function') {
+        autoTable(doc, {
+          head: [headers],
+          body: tableData,
+          startY: headerY + 48,
+          styles: { 
+            fontSize: 7,
+            cellPadding: 1.5,
+            overflow: 'linebreak'
+          },
+          headStyles: { 
+            fillColor: [139, 92, 246], 
+            textColor: 255, 
+            fontStyle: 'bold',
+            fontSize: 8
+          },
+          columnStyles: {
+            0: { cellWidth: 30 }, // Employee
+            1: { cellWidth: 25 }, // Manager
+            2: { cellWidth: 15 }, // Shift
+            3: { cellWidth: 35 }, // Step In
+            4: { cellWidth: 35 }, // Step Out
+            5: { cellWidth: 20 }, // Duration
+            6: { cellWidth: 40 }, // Location
+            7: { cellWidth: 20 }  // Status
+          },
+          margin: { top: headerY + 48, left: 10, right: 10 }
+        })
+      } else if (typeof doc.autoTable === 'function') {
+        doc.autoTable({
+          head: [headers],
+          body: tableData,
+          startY: headerY + 48,
+          styles: { 
+            fontSize: 7,
+            cellPadding: 1.5,
+            overflow: 'linebreak'
+          },
+          headStyles: { 
+            fillColor: [139, 92, 246], 
+            textColor: 255, 
+            fontStyle: 'bold',
+            fontSize: 8
+          },
+          columnStyles: {
+            0: { cellWidth: 30 },
+            1: { cellWidth: 25 },
+            2: { cellWidth: 15 },
+            3: { cellWidth: 35 },
+            4: { cellWidth: 35 },
+            5: { cellWidth: 20 },
+            6: { cellWidth: 40 },
+            7: { cellWidth: 20 }
+          },
+          margin: { top: headerY + 48, left: 10, right: 10 }
+        })
+      } else {
+        showAlert('PDF export library not loaded. Please refresh the page and try again.', 'Export Error', 'error')
+        return
+      }
+
+      // Footer with company branding
+      const footerY = pageHeight - 15
+      doc.setDrawColor(200, 200, 200)
+      doc.setLineWidth(0.3)
+      doc.line(15, footerY - 5, pageWidth - 15, footerY - 5)
+      
+      doc.setFontSize(8)
+      doc.setTextColor(100, 100, 100)
+      doc.text('ND Enterprise - Workforce Management System', pageWidth / 2, footerY, { align: 'center' })
+      doc.text(`Generated on: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`, pageWidth / 2, footerY + 5, { align: 'center' })
+      
+      // Page numbers
+      const pageCount = doc.internal.getNumberOfPages()
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i)
+        doc.setFontSize(8)
+        doc.setTextColor(100, 100, 100)
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, footerY + 5, { align: 'right' })
+      }
+
+      const fileName = `ND_Enterprise_${site?.name || 'Site'}_AttendanceReport_${startDate || 'all'}_${endDate || 'all'}.pdf`
+      doc.save(fileName)
+      showAlert('PDF exported successfully', 'Export Success', 'success')
+    } catch (error) {
+      console.error('Error exporting PDF:', error)
+      showAlert(`Failed to export PDF: ${error.message}`, 'Export Error', 'error')
+    }
+  }
+
+  const exportToExcel = () => {
+    try {
+      if (!attendance || attendance.length === 0) {
+        showAlert('No data available to export', 'Export Error', 'warning')
+        return
+      }
+
+      // Prepare worksheet data
+      const wsData = []
+
+      // Header row
+      wsData.push([
+        'Employee',
+        'Manager',
+        'Shift',
+        'Step In',
+        'Step Out',
+        'Duration',
+        'Location',
+        'Status'
+      ])
+
+      // Data rows
+      attendance.forEach(record => {
+        const employeeName = record.employeeId?.name || 'Unknown'
+        const managerName = record.managerId?.name || 'N/A'
+        const shift = record.shift ? record.shift.charAt(0).toUpperCase() + record.shift.slice(1) : 'N/A'
+        const stepIn = record.stepIn ? formatDateTime(record.stepIn) : 'Not stepped in'
+        const stepOut = record.stepOut ? formatDateTime(record.stepOut) : 'Not stepped out'
+        const duration = calculateDuration(record.stepIn, record.stepOut)
+        const location = record.stepInAddress || record.address || 'N/A'
+        const status = getStatus(record)
+
+        wsData.push([
+          employeeName,
+          managerName,
+          shift,
+          stepIn,
+          stepOut,
+          duration,
+          location,
+          status
+        ])
+      })
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.aoa_to_sheet(wsData)
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 25 }, // Employee
+        { wch: 20 }, // Manager
+        { wch: 12 }, // Shift
+        { wch: 20 }, // Step In
+        { wch: 20 }, // Step Out
+        { wch: 15 }, // Duration
+        { wch: 40 }, // Location
+        { wch: 15 }  // Status
+      ]
+
+      // Add metadata sheet
+      const metadata = []
+      metadata.push([`${site?.name || 'Site'} - Attendance Report Export`])
+      metadata.push([''])
+      metadata.push(['Generated on:', new Date().toLocaleString()])
+      metadata.push([''])
+      if (startDate && endDate) {
+        metadata.push(['Period:', `${startDate} to ${endDate}`])
+      }
+      if (selectedEmployee) {
+        const emp = employees.find(e => e._id === selectedEmployee)
+        if (emp) metadata.push(['Employee:', emp.name])
+      }
+      if (selectedManager) {
+        const mgr = managers.find(m => m._id === selectedManager)
+        if (mgr) metadata.push(['Manager:', mgr.name])
+      }
+      if (shiftFilter) {
+        metadata.push(['Shift:', shiftFilter])
+      }
+      if (statusFilter !== 'All') {
+        metadata.push(['Status:', statusFilter])
+      }
+      metadata.push([''])
+      metadata.push(['Total Records:', attendance.length])
+      metadata.push(['Present:', counts.present])
+      metadata.push(['Absent:', counts.absent])
+      metadata.push(['Late:', counts.late])
+      metadata.push(['Working:', counts.working])
+
+      const metadataWs = XLSX.utils.aoa_to_sheet(metadata)
+      XLSX.utils.book_append_sheet(wb, metadataWs, 'Report Info')
+      XLSX.utils.book_append_sheet(wb, ws, 'Attendance Data')
+
+      const fileName = `${site?.name || 'Site'}_AttendanceReport_${startDate || 'all'}_${endDate || 'all'}.xlsx`
+      XLSX.writeFile(wb, fileName)
+      showAlert('Excel file exported successfully', 'Export Success', 'success')
+    } catch (error) {
+      console.error('Error exporting Excel:', error)
+      showAlert(`Failed to export Excel: ${error.message}`, 'Export Error', 'error')
+    }
+  }
+
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5678/api'
   const getImageUrl = (image) => {
     if (!image) return null
     if (image.startsWith('http')) return image
     return `${API_BASE_URL.replace('/api', '')}/static/${image}`
-  }
-
-  const getStatus = (record) => {
-    if (!record.stepIn) return 'Absent'
-    if (!record.stepOut) return 'Working'
-    if (isLate(record.stepIn, record.shift)) return 'Late'
-    return 'Present'
   }
 
   const formatDateForInput = (dateString) => {
@@ -191,20 +557,6 @@ const AttendanceReports = () => {
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const year = date.getFullYear()
       return `${day}/${month}/${year}`
-    } catch (e) {
-      return ''
-    }
-  }
-
-  const formatDateForDisplay = (dateString) => {
-    if (!dateString) return ''
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('en-GB', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric' 
-      })
     } catch (e) {
       return ''
     }
@@ -299,7 +651,7 @@ const AttendanceReports = () => {
       }
 
       await attendanceAPI.update(editingRecord._id, updateData)
-      await fetchAttendanceRecords()
+      await fetchAttendance()
       handleCloseEdit()
       showAlert('Attendance record updated successfully', 'Success', 'success')
     } catch (error) {
@@ -314,7 +666,7 @@ const AttendanceReports = () => {
       async () => {
         try {
           await attendanceAPI.delete(record._id)
-          await fetchAttendanceRecords()
+          await fetchAttendance()
           showAlert('Attendance record deleted successfully', 'Success', 'success')
         } catch (error) {
           console.error('Error deleting attendance:', error)
@@ -344,7 +696,7 @@ const AttendanceReports = () => {
 
   const handleSelectAll = (checked) => {
     if (checked) {
-      const allIds = new Set(paginatedRecords.map(record => record._id))
+      const allIds = new Set(attendance.map(record => record._id))
       setSelectedRecords(allIds)
     } else {
       setSelectedRecords(new Set())
@@ -366,7 +718,7 @@ const AttendanceReports = () => {
           const deletePromises = Array.from(selectedRecords).map(id => attendanceAPI.delete(id))
           await Promise.all(deletePromises)
           setSelectedRecords(new Set())
-          await fetchAttendanceRecords()
+          await fetchAttendance()
           showAlert(`${count} attendance record(s) deleted successfully`, 'Success', 'success')
         } catch (error) {
           console.error('Error deleting attendance records:', error)
@@ -384,367 +736,17 @@ const AttendanceReports = () => {
     )
   }
 
-  // Pagination calculations
-  const totalItems = attendanceRecords.length
-  const totalPages = Math.ceil(totalItems / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedRecords = attendanceRecords.slice(startIndex, endIndex)
+  const isAllSelected = attendance.length > 0 && attendance.every(record => selectedRecords.has(record._id))
+  const isSomeSelected = attendance.some(record => selectedRecords.has(record._id))
 
-  const isAllSelected = paginatedRecords.length > 0 && paginatedRecords.every(record => selectedRecords.has(record._id))
-  const isSomeSelected = paginatedRecords.some(record => selectedRecords.has(record._id))
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-    setSelectedRecords(new Set()) // Clear selections when filters change
-  }, [fromDate, toDate, selectedEmployee, selectedManager, selectedShift, statusFilter])
-
-  // Calculate counts
-  const calculateCounts = () => {
-    const counts = {
-      total: attendanceRecords.length,
-      present: 0,
-      absent: 0,
-      late: 0,
-      working: 0
-    }
-
-    attendanceRecords.forEach(record => {
-      const status = getStatus(record)
-      if (status === 'Present') counts.present++
-      else if (status === 'Absent') counts.absent++
-      else if (status === 'Late') counts.late++
-      else if (status === 'Working') counts.working++
-    })
-
-    return counts
-  }
-
-  const counts = calculateCounts()
-
-  const exportToPDF = async () => {
-    try {
-      if (!attendanceRecords || attendanceRecords.length === 0) {
-        showAlert('No data available to export', 'Export Error', 'warning')
-        return
-      }
-
-      const doc = new jsPDF('landscape')
-      const pageWidth = doc.internal.pageSize.getWidth()
-      const pageHeight = doc.internal.pageSize.getHeight()
-      
-      // Company Branding Header
-      const headerY = 10
-      const logoSize = 20
-      
-      // Add logo if available
-      try {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.src = logoImage
-        
-        await new Promise((resolve) => {
-          img.onload = () => {
-            try {
-              doc.addImage(img, 'JPEG', 15, headerY, logoSize, logoSize * (img.height / img.width))
-              resolve()
-            } catch (e) {
-              console.warn('Could not add logo to PDF:', e)
-              resolve()
-            }
-          }
-          img.onerror = () => {
-            console.warn('Logo image failed to load')
-            resolve()
-          }
-          setTimeout(() => resolve(), 2000)
-        })
-      } catch (e) {
-        console.warn('Logo loading error:', e)
-      }
-      
-      // Company Name and Details
-      const companyNameX = logoSize + 25
-      doc.setFontSize(18)
-      doc.setFont(undefined, 'bold')
-      doc.text('ND ENTERPRISE', companyNameX, headerY + 8)
-      
-      doc.setFontSize(10)
-      doc.setFont(undefined, 'normal')
-      doc.text('Workforce Management System', companyNameX, headerY + 15)
-      
-      // Report Title (centered)
-      doc.setFontSize(16)
-      doc.setFont(undefined, 'bold')
-      doc.text('ATTENDANCE REPORTS', pageWidth / 2, headerY + 25, { align: 'center' })
-      
-      // Period
-      doc.setFontSize(11)
-      doc.setFont(undefined, 'normal')
-      const dateRange = fromDate && toDate 
-        ? `Period: ${fromDate.split('-').reverse().join('-')} to ${toDate.split('-').reverse().join('-')}`
-        : 'All Records'
-      doc.text(dateRange, pageWidth / 2, headerY + 32, { align: 'center' })
-
-      // Filter info
-      let filterInfo = []
-      if (selectedEmployee) {
-        const emp = employees.find(e => e._id === selectedEmployee)
-        if (emp) filterInfo.push(`Employee: ${emp.name}`)
-      }
-      if (selectedManager) {
-        const mgr = managers.find(m => m._id === selectedManager)
-        if (mgr) filterInfo.push(`Manager: ${mgr.name}`)
-      }
-      if (selectedShift) {
-        const shiftLabel = selectedShift === 'morning' ? 'Morning (7 AM - 3 PM)' 
-          : selectedShift === 'evening' ? 'Evening (3 PM - 11 PM)' 
-          : 'Night (11 PM - 7 AM)'
-        filterInfo.push(`Shift: ${shiftLabel}`)
-      }
-      if (statusFilter !== 'All') {
-        filterInfo.push(`Status: ${statusFilter}`)
-      }
-      
-      if (filterInfo.length > 0) {
-        doc.setFontSize(9)
-        doc.text(filterInfo.join(' | '), pageWidth / 2, headerY + 38, { align: 'center' })
-      }
-      
-      // Add a line separator
-      doc.setDrawColor(139, 92, 246)
-      doc.setLineWidth(0.5)
-      doc.line(15, headerY + 43, pageWidth - 15, headerY + 43)
-
-      // Prepare table data
-      const tableData = attendanceRecords.map(record => {
-        const employeeName = record.employeeId?.name || 'Unknown'
-        const managerName = record.managerId?.name || 'N/A'
-        const shift = record.shift ? record.shift.charAt(0).toUpperCase() + record.shift.slice(1) : 'N/A'
-        const stepIn = record.stepIn ? formatDateTime(record.stepIn) : 'Not stepped in'
-        const stepOut = record.stepOut ? formatDateTime(record.stepOut) : 'Not stepped out'
-        const duration = calculateDuration(record.stepIn, record.stepOut)
-        const location = record.stepInAddress || record.address || 'N/A'
-        const status = getStatus(record)
-
-        return [
-          employeeName,
-          managerName,
-          shift,
-          stepIn,
-          stepOut,
-          duration,
-          location.length > 30 ? location.substring(0, 30) + '...' : location,
-          status
-        ]
-      })
-
-      // Table headers
-      const headers = [
-        'Employee',
-        'Manager',
-        'Shift',
-        'Step In',
-        'Step Out',
-        'Duration',
-        'Location',
-        'Status'
-      ]
-
-      // Try using autoTable as a function first
-      if (typeof autoTable === 'function') {
-        autoTable(doc, {
-          head: [headers],
-          body: tableData,
-          startY: filterInfo.length > 0 ? headerY + 48 : headerY + 48,
-          styles: { 
-            fontSize: 7,
-            cellPadding: 1.5,
-            overflow: 'linebreak'
-          },
-          headStyles: { 
-            fillColor: [139, 92, 246], 
-            textColor: 255, 
-            fontStyle: 'bold',
-            fontSize: 8
-          },
-          columnStyles: {
-            0: { cellWidth: 30 }, // Employee
-            1: { cellWidth: 25 }, // Manager
-            2: { cellWidth: 15 }, // Shift
-            3: { cellWidth: 35 }, // Step In
-            4: { cellWidth: 35 }, // Step Out
-            5: { cellWidth: 20 }, // Duration
-            6: { cellWidth: 40 }, // Location
-            7: { cellWidth: 20 }  // Status
-          },
-          margin: { top: filterInfo.length > 0 ? headerY + 48 : headerY + 48, left: 10, right: 10 }
-        })
-      } else if (typeof doc.autoTable === 'function') {
-        doc.autoTable({
-          head: [headers],
-          body: tableData,
-          startY: filterInfo.length > 0 ? headerY + 48 : headerY + 48,
-          styles: { 
-            fontSize: 7,
-            cellPadding: 1.5,
-            overflow: 'linebreak'
-          },
-          headStyles: { 
-            fillColor: [139, 92, 246], 
-            textColor: 255, 
-            fontStyle: 'bold',
-            fontSize: 8
-          },
-          columnStyles: {
-            0: { cellWidth: 30 },
-            1: { cellWidth: 25 },
-            2: { cellWidth: 15 },
-            3: { cellWidth: 35 },
-            4: { cellWidth: 35 },
-            5: { cellWidth: 20 },
-            6: { cellWidth: 40 },
-            7: { cellWidth: 20 }
-          },
-          margin: { top: filterInfo.length > 0 ? headerY + 48 : headerY + 48, left: 10, right: 10 }
-        })
-      } else {
-        showAlert('PDF export library not loaded. Please refresh the page and try again.', 'Export Error', 'error')
-        return
-      }
-
-      // Footer with company branding
-      const footerY = pageHeight - 15
-      doc.setDrawColor(200, 200, 200)
-      doc.setLineWidth(0.3)
-      doc.line(15, footerY - 5, pageWidth - 15, footerY - 5)
-      
-      doc.setFontSize(8)
-      doc.setTextColor(100, 100, 100)
-      doc.text('ND Enterprise - Workforce Management System', pageWidth / 2, footerY, { align: 'center' })
-      doc.text(`Generated on: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`, pageWidth / 2, footerY + 5, { align: 'center' })
-      
-      // Page numbers
-      const pageCount = doc.internal.getNumberOfPages()
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i)
-        doc.setFontSize(8)
-        doc.setTextColor(100, 100, 100)
-        doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, footerY + 5, { align: 'right' })
-      }
-
-      const fileName = `ND_Enterprise_AttendanceReport_${fromDate || 'all'}_${toDate || 'all'}.pdf`
-      doc.save(fileName)
-      showAlert('PDF exported successfully', 'Export Success', 'success')
-    } catch (error) {
-      console.error('Error exporting PDF:', error)
-      showAlert(`Failed to export PDF: ${error.message}`, 'Export Error', 'error')
-    }
-  }
-
-  const exportToExcel = () => {
-    try {
-      if (!attendanceRecords || attendanceRecords.length === 0) {
-        showAlert('No data available to export', 'Export Error', 'warning')
-        return
-      }
-
-      // Prepare worksheet data
-      const wsData = []
-
-      // Header row
-      wsData.push([
-        'Employee',
-        'Manager',
-        'Shift',
-        'Step In',
-        'Step Out',
-        'Duration',
-        'Location',
-        'Status'
-      ])
-
-      // Data rows
-      attendanceRecords.forEach(record => {
-        const employeeName = record.employeeId?.name || 'Unknown'
-        const managerName = record.managerId?.name || 'N/A'
-        const shift = record.shift ? record.shift.charAt(0).toUpperCase() + record.shift.slice(1) : 'N/A'
-        const stepIn = record.stepIn ? formatDateTime(record.stepIn) : 'Not stepped in'
-        const stepOut = record.stepOut ? formatDateTime(record.stepOut) : 'Not stepped out'
-        const duration = calculateDuration(record.stepIn, record.stepOut)
-        const location = record.stepInAddress || record.address || 'N/A'
-        const status = getStatus(record)
-
-        wsData.push([
-          employeeName,
-          managerName,
-          shift,
-          stepIn,
-          stepOut,
-          duration,
-          location,
-          status
-        ])
-      })
-
-      // Create workbook and worksheet
-      const wb = XLSX.utils.book_new()
-      const ws = XLSX.utils.aoa_to_sheet(wsData)
-
-      // Set column widths
-      ws['!cols'] = [
-        { wch: 25 }, // Employee
-        { wch: 20 }, // Manager
-        { wch: 12 }, // Shift
-        { wch: 20 }, // Step In
-        { wch: 20 }, // Step Out
-        { wch: 15 }, // Duration
-        { wch: 40 }, // Location
-        { wch: 15 }  // Status
-      ]
-
-      // Add metadata sheet
-      const metadata = []
-      metadata.push(['Attendance Report Export'])
-      metadata.push([''])
-      metadata.push(['Generated on:', new Date().toLocaleString()])
-      metadata.push([''])
-      if (fromDate && toDate) {
-        metadata.push(['Period:', `${fromDate} to ${toDate}`])
-      }
-      if (selectedEmployee) {
-        const emp = employees.find(e => e._id === selectedEmployee)
-        if (emp) metadata.push(['Employee:', emp.name])
-      }
-      if (selectedManager) {
-        const mgr = managers.find(m => m._id === selectedManager)
-        if (mgr) metadata.push(['Manager:', mgr.name])
-      }
-      if (selectedShift) {
-        metadata.push(['Shift:', selectedShift])
-      }
-      if (statusFilter !== 'All') {
-        metadata.push(['Status:', statusFilter])
-      }
-      metadata.push([''])
-      metadata.push(['Total Records:', attendanceRecords.length])
-      metadata.push(['Present:', counts.present])
-      metadata.push(['Absent:', counts.absent])
-      metadata.push(['Late:', counts.late])
-      metadata.push(['Working:', counts.working])
-
-      const metadataWs = XLSX.utils.aoa_to_sheet(metadata)
-      XLSX.utils.book_append_sheet(wb, metadataWs, 'Report Info')
-      XLSX.utils.book_append_sheet(wb, ws, 'Attendance Data')
-
-      const fileName = `AttendanceReport_${fromDate || 'all'}_${toDate || 'all'}.xlsx`
-      XLSX.writeFile(wb, fileName)
-      showAlert('Excel file exported successfully', 'Export Success', 'success')
-    } catch (error) {
-      console.error('Error exporting Excel:', error)
-      showAlert(`Failed to export Excel: ${error.message}`, 'Export Error', 'error')
-    }
+  if (loading && !site) {
+    return (
+      <div className="page-container">
+        <div className="page-header">
+          <h1>Loading...</h1>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -752,11 +754,20 @@ const AttendanceReports = () => {
       <div className="page-header">
         <div className="page-header-content">
           <div>
-            <h1>Attendance Reports</h1>
-            <p className="page-subtitle">View detailed attendance reports</p>
+            <button 
+              className="btn-icon" 
+              onClick={() => navigate(`/sites/${id}`)}
+              style={{ marginBottom: '12px' }}
+            >
+              <FaArrowLeft style={{ marginRight: '8px' }} />
+              Back to Site Details
+            </button>
+            <h1>{site?.name || 'Site'} - Attendance</h1>
+            <p className="page-subtitle">View all attendance records for this site</p>
           </div>
         </div>
       </div>
+
       <div className="page-content">
         {/* Summary Cards - Always show counts */}
         <div className="stats-grid" style={{ marginBottom: '24px' }}>
@@ -807,173 +818,172 @@ const AttendanceReports = () => {
           </div>
         </div>
 
+        {/* Export Buttons */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e5e7eb' }}>
+          <button 
+            className="btn-icon" 
+            onClick={exportToExcel} 
+            disabled={loading || attendance.length === 0}
+            title="Export to Excel"
+          >
+            <FaFileExcel />
+            <span>Excel</span>
+          </button>
+          <button 
+            className="btn-icon" 
+            onClick={exportToPDF} 
+            disabled={loading || attendance.length === 0}
+            title="Export to PDF"
+          >
+            <FaFilePdf />
+            <span>PDF</span>
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="filters-container">
+          <div className="filter-group">
+            <label>Date Range</label>
+            <input 
+              type="date" 
+              className="form-input" 
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <span>to</span>
+            <input 
+              type="date" 
+              className="form-input"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+          <div className="filter-group">
+            <label>Employee</label>
+            <select 
+              className="form-input"
+              value={selectedEmployee}
+              onChange={(e) => setSelectedEmployee(e.target.value)}
+            >
+              <option value="">All Employees</option>
+              {employees.map(emp => (
+                <option key={emp._id} value={emp._id}>
+                  {emp.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Manager</label>
+            <select 
+              className="form-input"
+              value={selectedManager}
+              onChange={(e) => setSelectedManager(e.target.value)}
+            >
+              <option value="">All Managers</option>
+              {managers.map(mgr => (
+                <option key={mgr._id} value={mgr._id}>
+                  {mgr.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Shift</label>
+            <select
+              className="form-input"
+              value={shiftFilter}
+              onChange={(e) => setShiftFilter(e.target.value)}
+            >
+              <option value="">All Shifts</option>
+              <option value="morning">Morning (7 AM - 3 PM)</option>
+              <option value="evening">Evening (3 PM - 11 PM)</option>
+              <option value="night">Night (11 PM - 7 AM)</option>
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Status</label>
+            <select 
+              className="form-input"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option>All</option>
+              <option>Present</option>
+              <option>Absent</option>
+              <option>Late</option>
+              <option>Working</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Attendance Table */}
         <div className="content-section">
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e5e7eb' }}>
-            <button 
-              className="btn-icon" 
-              onClick={exportToExcel} 
-              disabled={loading || attendanceRecords.length === 0}
-              title="Export to Excel"
-            >
-              <FaFileExcel />
-              <span>Excel</span>
-            </button>
-            <button 
-              className="btn-icon" 
-              onClick={exportToPDF} 
-              disabled={loading || attendanceRecords.length === 0}
-              title="Export to PDF"
-            >
-              <FaFilePdf />
-              <span>PDF</span>
-            </button>
+          <div className="section-header">
+            <h2>Attendance Records ({attendance.length})</h2>
           </div>
-          <div className="filters-container">
-            <div className="filter-group">
-              <label>Date Range</label>
-              <input 
-                type="date" 
-                className="form-input" 
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
-              <span>to</span>
-              <input 
-                type="date" 
-                className="form-input"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
+
+          {attendance.length === 0 ? (
+            <div className="empty-state">
+              <p>No attendance records found for this site.</p>
             </div>
-            <div className="filter-group">
-              <label>Employee</label>
-              <select 
-                className="form-input"
-                value={selectedEmployee}
-                onChange={(e) => setSelectedEmployee(e.target.value)}
-              >
-                <option value="">All Employees</option>
-                {employees.map(emp => (
-                  <option key={emp._id} value={emp._id}>
-                    {emp.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label>Manager</label>
-              <select 
-                className="form-input"
-                value={selectedManager}
-                onChange={(e) => setSelectedManager(e.target.value)}
-              >
-                <option value="">All Managers</option>
-                {managers.map(mgr => (
-                  <option key={mgr._id} value={mgr._id}>
-                    {mgr.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label>Shift</label>
-              <select 
-                className="form-input"
-                value={selectedShift}
-                onChange={(e) => setSelectedShift(e.target.value)}
-              >
-                <option value="">All Shifts</option>
-                <option value="morning">Morning (7 AM - 3 PM)</option>
-                <option value="evening">Evening (3 PM - 11 PM)</option>
-                <option value="night">Night (11 PM - 7 AM)</option>
-              </select>
-            </div>
-            <div className="filter-group">
-              <label>Status</label>
-              <select 
-                className="form-input"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option>All</option>
-                <option>Present</option>
-                <option>Absent</option>
-                <option>Late</option>
-                <option>Working</option>
-              </select>
-            </div>
-          </div>
-          <div className="table-container">
-            {selectedRecords.size > 0 && (
-              <div style={{ 
-                marginBottom: '16px', 
-                padding: '12px', 
-                background: '#eff6ff', 
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <span style={{ fontWeight: '500', color: '#1e40af' }}>
-                  {selectedRecords.size} record(s) selected
-                </span>
-                <button
-                  className="btn-secondary"
-                  onClick={handleBulkDelete}
-                  disabled={isDeleting}
-                  style={{ 
-                    background: '#dc2626', 
-                    color: 'white',
-                    border: 'none'
-                  }}
-                >
-                  <FaTrash style={{ marginRight: '8px' }} />
-                  {isDeleting ? 'Deleting...' : `Delete Selected (${selectedRecords.size})`}
-                </button>
-              </div>
-            )}
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '40px' }}>
-                    <input
-                      type="checkbox"
-                      checked={isAllSelected}
-                      ref={(input) => {
-                        if (input) input.indeterminate = isSomeSelected && !isAllSelected
-                      }}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      style={{ cursor: 'pointer' }}
-                    />
-                  </th>
-                  <th>Employee</th>
-                  <th>Manager</th>
-                  <th>Shift</th>
-                  <th>Step In</th>
-                  <th>Step Out</th>
-                  <th>Duration</th>
-                  <th>Location</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
+          ) : (
+            <div className="table-container">
+              {selectedRecords.size > 0 && (
+                <div style={{ 
+                  marginBottom: '16px', 
+                  padding: '12px', 
+                  background: '#eff6ff', 
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <span style={{ fontWeight: '500', color: '#1e40af' }}>
+                    {selectedRecords.size} record(s) selected
+                  </span>
+                  <button
+                    className="btn-secondary"
+                    onClick={handleBulkDelete}
+                    disabled={isDeleting}
+                    style={{ 
+                      background: '#dc2626', 
+                      color: 'white',
+                      border: 'none'
+                    }}
+                  >
+                    <FaTrash style={{ marginRight: '8px' }} />
+                    {isDeleting ? 'Deleting...' : `Delete Selected (${selectedRecords.size})`}
+                  </button>
+                </div>
+              )}
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan="10" className="empty-state">Loading...</td>
+                    <th style={{ width: '40px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        ref={(input) => {
+                          if (input) input.indeterminate = isSomeSelected && !isAllSelected
+                        }}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </th>
+                    <th>Employee</th>
+                    <th>Manager</th>
+                    <th>Shift</th>
+                    <th>Step In</th>
+                    <th>Step Out</th>
+                    <th>Duration</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ) : error ? (
-                  <tr>
-                    <td colSpan="10" className="empty-state" style={{ color: '#dc2626' }}>
-                      {error}
-                    </td>
-                  </tr>
-                ) : attendanceRecords.length === 0 ? (
-                  <tr>
-                    <td colSpan="10" className="empty-state">No attendance records found</td>
-                  </tr>
-                ) : (
-                  paginatedRecords.map((record) => (
+                </thead>
+                <tbody>
+                  {attendance.map((record) => (
                     <tr key={record._id} style={{ background: selectedRecords.has(record._id) ? '#eff6ff' : 'transparent' }}>
                       <td>
                         <input
@@ -997,7 +1007,7 @@ const AttendanceReports = () => {
                               }}
                             />
                           )}
-                          <span>{record.employeeId?.name || 'Unknown'}</span>
+                          <span>{record.employeeId?.name || 'N/A'}</span>
                         </div>
                       </td>
                       <td>{record.managerId?.name || 'N/A'}</td>
@@ -1007,19 +1017,15 @@ const AttendanceReports = () => {
                         </span>
                       </td>
                       <td>
-                        {record.stepIn ? (
-                          <div style={{ fontSize: '13px' }}>
-                            <div><FaClock style={{ marginRight: '4px' }} />{formatDate(record.stepIn)}</div>
-                            {record.stepInAddress && (
-                              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                                <FaMapMarkerAlt style={{ marginRight: '4px' }} />
-                                {record.stepInAddress}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Not stepped in</span>
-                        )}
+                        <div style={{ fontSize: '13px' }}>
+                          <div><FaClock style={{ marginRight: '4px' }} />{formatDate(record.stepIn)}</div>
+                          {record.stepInAddress && (
+                            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                              <FaMapMarkerAlt style={{ marginRight: '4px' }} />
+                              {record.stepInAddress}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td>
                         {record.stepOut ? (
@@ -1041,7 +1047,7 @@ const AttendanceReports = () => {
                         {record.stepInAddress ? (
                           <div style={{ fontSize: '12px', color: '#6b7280' }}>
                             <FaMapMarkerAlt style={{ marginRight: '4px' }} />
-                            {record.stepInAddress.length > 30 ? record.stepInAddress.substring(0, 30) + '...' : record.stepInAddress}
+                            {record.stepInAddress.substring(0, 30)}...
                           </div>
                         ) : 'N/A'}
                       </td>
@@ -1069,23 +1075,10 @@ const AttendanceReports = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          {attendanceRecords.length > 0 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              itemsPerPage={itemsPerPage}
-              totalItems={totalItems}
-              onItemsPerPageChange={(value) => {
-                setItemsPerPage(value)
-                setCurrentPage(1)
-              }}
-            />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -1096,7 +1089,7 @@ const AttendanceReports = () => {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title-section">
-                <h2 className="modal-title">Edit Report Entry</h2>
+                <h2 className="modal-title">Edit Attendance Record</h2>
                 <p className="modal-subtitle">
                   Update the attendance record for {editingRecord.employeeId?.name || 'employee'} on {editingRecord.stepIn ? formatDateForInput(editingRecord.stepIn) : 'N/A'}.
                 </p>
@@ -1226,5 +1219,5 @@ const AttendanceReports = () => {
   )
 }
 
-export default AttendanceReports
+export default SiteAttendance
 

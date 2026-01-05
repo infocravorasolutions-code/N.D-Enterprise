@@ -11,10 +11,12 @@ import {
   FaChevronRight,
   FaTimes,
   FaShieldAlt,
-  FaSignOutAlt
+  FaSignOutAlt,
+  FaBuilding
 } from 'react-icons/fa'
 import { removeToken } from '../services/api'
 import { getStoredUser } from '../services/auth'
+import ndLogo from '../images/Logo.jpg'
 import './Sidebar.css'
 
 const Sidebar = ({ isOpen, toggleSidebar, isMobile, onNavClick }) => {
@@ -23,19 +25,33 @@ const Sidebar = ({ isOpen, toggleSidebar, isMobile, onNavClick }) => {
   
   // Get user data from localStorage
   const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType') || 'admin'
   const userEmail = userData.email || 'user@example.com'
   const userName = userData.name || 'User'
   const userInitial = userName.charAt(0).toUpperCase()
 
-  const menuItems = [
+  // Admin menu items
+  const adminMenuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: FaChartBar },
     { path: '/employees', label: 'Employees', icon: FaUsers },
     { path: '/supervisor', label: 'Supervisor', icon: FaUserTie },
+    { path: '/sites', label: 'Sites & Events', icon: FaBuilding },
     { path: '/admins', label: 'Admins', icon: FaShieldAlt },
     { path: '/master-roll-report', label: 'Muster Roll', icon: FaClipboardList },
     { path: '/attendance-reports', label: 'Reports', icon: FaCalendarAlt },
     { path: '/summary-report', label: 'Summary Report', icon: FaChartLine },
   ]
+
+  // Manager menu items (limited access)
+  const managerMenuItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: FaChartBar },
+    { path: '/employees', label: 'My Employees', icon: FaUsers },
+    { path: '/attendance-reports', label: 'Reports', icon: FaCalendarAlt },
+    { path: '/summary-report', label: 'Summary Report', icon: FaChartLine },
+  ]
+
+  // Select menu items based on user type
+  const menuItems = userType === 'manager' ? managerMenuItems : adminMenuItems
 
   const handleNavClick = () => {
     if (onNavClick) {
@@ -58,8 +74,13 @@ const Sidebar = ({ isOpen, toggleSidebar, isMobile, onNavClick }) => {
     <div className={`sidebar ${isOpen ? 'open' : 'closed'} ${isMobile ? 'mobile' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-logo-section">
+          <img src={ndLogo} alt="ND Enterprise Logo" className="sidebar-logo-image" />
+          {isOpen && (
+            <div className="sidebar-logo-text">
           <h2 className="sidebar-logo">ND Enterprise</h2>
-          {isOpen && <p className="sidebar-subtitle">Admin Panel</p>}
+              <p className="sidebar-subtitle">{userType === 'manager' ? 'Manager Panel' : 'Admin Panel'}</p>
+            </div>
+          )}
         </div>
         {isMobile && (
           <button className="close-btn" onClick={toggleSidebar} aria-label="Close menu">
@@ -76,7 +97,8 @@ const Sidebar = ({ isOpen, toggleSidebar, isMobile, onNavClick }) => {
         {menuItems.map((item) => {
           const IconComponent = item.icon
           const isActive = location.pathname === item.path || 
-            (item.path === '/dashboard' && location.pathname === '/')
+            (item.path === '/dashboard' && location.pathname === '/') ||
+            (item.path === '/sites' && location.pathname.startsWith('/sites'))
           return (
             <Link
               key={item.path}

@@ -1,6 +1,7 @@
 import Attendance from "../models/attendence.models.js";
 import Employee from "../models/employee.models.js";
 import Admin from "../models/admin.models.js";
+import mongoose from "mongoose";
 import { getCurrentISTTime, getHoursAgoInIST, formatAttendanceForAPI } from "../utils/timeUtils.js";
 
 
@@ -65,12 +66,36 @@ const getShiftEndTime = (clockInTime, shift) => {
 export const markStepIn = async (req, res) => {
   try {
     // console.log("[DEBUG] markStepIn request body:", req.body);
-    const { employeeId, managerId, longitude, latitude, address, note, shift } = req.body;
+    const { employeeId, managerId, longitude, latitude, address, note, shift, siteId } = req.body;
 
     // Check if there is already an open attendance for this employee
     const openAttendance = await Attendance.findOne({ employeeId, stepOut: { $exists: false } });
     if (openAttendance) {
       return res.status(400).json({ message: "Already stepped in. Please step out before stepping in again." });
+    }
+
+    // Handle siteId - convert string "null" to actual null
+    let finalSiteId = siteId;
+    
+    // Handle string "null", empty string, or falsy values
+    if (finalSiteId === "null" || finalSiteId === "" || finalSiteId === null || finalSiteId === undefined) {
+      finalSiteId = null;
+    } else {
+      // Try to convert to ObjectId if it's a valid string
+      try {
+        finalSiteId = new mongoose.Types.ObjectId(finalSiteId);
+      } catch (e) {
+        console.log(`[markStepIn] Invalid siteId format: ${finalSiteId}, setting to null`);
+        finalSiteId = null;
+      }
+    }
+    
+    // If still no siteId, try to get it from employee
+    if (!finalSiteId) {
+      const employee = await Employee.findById(employeeId);
+      if (employee && employee.siteId) {
+        finalSiteId = employee.siteId;
+      }
     }
 
     const stepIn = getCurrentISTTime();
@@ -93,11 +118,15 @@ export const markStepIn = async (req, res) => {
       latitude,
       address,
       note,
-      shift: finalShift // Use shift from request or auto-detected
+      shift: finalShift, // Use shift from request or auto-detected
+      siteId: finalSiteId || null
     });
 
     await attendance.save();
     await Employee.findByIdAndUpdate(employeeId, { isWorking: true });
+    
+    console.log(`[markStepIn] Created attendance with siteId: ${finalSiteId || 'null'} for employee: ${employeeId}`);
+    
     res.status(201).json({ 
       message: "Step In marked", 
       attendance: formatAttendanceForAPI(attendance),
@@ -347,13 +376,51 @@ export const markStepOut = async (req, res) => {
 export const getEmployeeAttendance = async (req, res) => {
   try {
     const { employeeId } = req.params;
+    const userData = req?.user;
+    const mongoose = (await import("mongoose")).default;
+    
     if (!employeeId) {
       return res.status(400).json({ message: "employeeId is required in params" });
     }
-    const attendance = await Attendance.find({ employeeId })
-      .populate("employeeId")
-      .populate("managerId")
-      .sort({ createdAt: 1 });
+    
+    // Build query
+    let query = { employeeId };
+    
+    // For site managers, only show attendance for their site
+    if (userData?.userType === 'manager' && userData?.siteId) {
+      const siteObjectId = new mongoose.Types.ObjectId(userData.siteId);
+      // Verify employee belongs to this site
+      const employee = await Employee.findById(employeeId);
+      if (employee && employee.siteId && String(employee.siteId) === String(siteObjectId)) {
+        // Employee belongs to site, show their attendance (with or without siteId set)
+        query.$or = [
+          { siteId: siteObjectId },
+          { siteId: null } // Legacy records
+        ];
+      } else {
+        // Employee doesn't belong to this site, return empty
+        return res.status(200).json({ attendance: [] });
+      }
+    } else if (userData?.userType === 'manager' && !userData?.siteId) {
+      // Global manager: only show global attendance for their employees
+      query.siteId = null;
+      // Also verify employee belongs to this manager
+      const employee = await Employee.findById(employeeId);
+      if (employee && String(employee.managerId) !== String(userData.id)) {
+        return res.status(200).json({ attendance: [] });
+      }
+    } else if (userData?.userType === 'admin') {
+      // Admin: only show global attendance
+      query.siteId = null;
+    }
+    
+    const attendance = await Attendance.find(query)
+      .populate("employeeId", "name email mobile image shift siteId")
+      .populate("managerId", "name email mobile")
+      .sort({ createdAt: -1 }); // Most recent first
+    
+    console.log(`[getEmployeeAttendance] Found ${attendance.length} records for employeeId: ${employeeId}, userType: ${userData?.userType}, siteId: ${userData?.siteId || 'null'}`);
+    
     res.status(200).json({ attendance });
   } catch (error) {
     console.error("Error fetching attendance:", error);
@@ -365,11 +432,123 @@ export const getEmployeeAttendance = async (req, res) => {
 export const getAllAttendance = async (req, res) => {
   try {
     const { managerId, employeeId, startDate, endDate, order = 'desc' } = req.query;
+    const userData = req?.user;
+    const mongoose = (await import("mongoose")).default;
     
     // Build query object
-    const query = {};
+    let query = {};
     
-    // Filter by manager
+    // Handle site managers vs global managers/admins
+    let attendance;
+    
+    if (userData?.userType === 'manager') {
+      if (userData.siteId) {
+        // Site manager: show attendance for ALL employees in their site
+        const siteObjectId = new mongoose.Types.ObjectId(userData.siteId);
+        
+        // Get all employees for this site
+        const siteEmployees = await Employee.find({ siteId: siteObjectId }).select('_id');
+        const employeeIds = siteEmployees.map(emp => emp._id);
+        
+        console.log(`[getAllAttendance] Site manager - siteId: ${userData.siteId}, found ${employeeIds.length} employees`);
+        
+        if (employeeIds.length === 0) {
+          console.log(`[getAllAttendance] Site manager has no employees in site ${userData.siteId}`);
+          return res.status(200).json({ attendance: [] });
+        }
+        
+        // Build base query for site employees
+        const baseQuery = {
+          employeeId: { $in: employeeIds }
+        };
+        
+        // Add date filter if provided
+        if (startDate || endDate) {
+          baseQuery.stepIn = {};
+          if (startDate) {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            baseQuery.stepIn.$gte = start;
+          }
+          if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            baseQuery.stepIn.$lte = end;
+          }
+        }
+        
+        // Filter by employee if specified
+        if (employeeId) {
+          // Verify employee belongs to this site
+          const employee = await Employee.findById(employeeId);
+          if (employee && employee.siteId && String(employee.siteId) === String(siteObjectId)) {
+            baseQuery.employeeId = employeeId;
+          } else {
+            // Employee doesn't belong to this site, return empty
+            console.log(`[getAllAttendance] Employee ${employeeId} doesn't belong to site ${userData.siteId}`);
+            return res.status(200).json({ attendance: [] });
+          }
+        }
+        
+        // Build sort object
+        const sort = {};
+        if (order === 'desc') {
+          sort.createdAt = -1;
+        } else {
+          sort.createdAt = 1;
+        }
+        
+        console.log(`[getAllAttendance] Site manager query:`, JSON.stringify(baseQuery, null, 2));
+        
+        attendance = await Attendance.find(baseQuery)
+          .populate("employeeId", "name email mobile image shift siteId")
+          .populate("managerId", "name email mobile")
+          .sort(sort);
+          
+        console.log(`[getAllAttendance] Site manager found ${attendance.length} attendance records`);
+      } else {
+        // Global manager: show global attendance for their employees
+        query.siteId = null;
+        query.managerId = userData.id;
+        
+        // Filter by date range
+        if (startDate || endDate) {
+          query.stepIn = {};
+          if (startDate) {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            query.stepIn.$gte = start;
+          }
+          if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            query.stepIn.$lte = end;
+          }
+        }
+        
+        // Filter by employee
+        if (employeeId) {
+          query.employeeId = employeeId;
+        }
+        
+        // Build sort object
+        const sort = {};
+        if (order === 'desc') {
+          sort.createdAt = -1;
+        } else {
+          sort.createdAt = 1;
+        }
+        
+        attendance = await Attendance.find(query)
+          .populate("employeeId", "name email mobile image shift siteId")
+          .populate("managerId", "name email mobile")
+          .sort(sort);
+      }
+    } else {
+      // Admin: show only global attendance
+      query.siteId = null;
+      
+      // Filter by manager (if provided in query)
     if (managerId) {
       query.managerId = managerId;
     }
@@ -383,10 +562,14 @@ export const getAllAttendance = async (req, res) => {
     if (startDate || endDate) {
       query.stepIn = {};
       if (startDate) {
-        query.stepIn.$gte = new Date(startDate);
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          query.stepIn.$gte = start;
       }
       if (endDate) {
-        query.stepIn.$lte = new Date(endDate + 'T23:59:59.999Z');
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          query.stepIn.$lte = end;
       }
     }
     
@@ -398,10 +581,13 @@ export const getAllAttendance = async (req, res) => {
       sort.createdAt = 1;
     }
     
-    const attendance = await Attendance.find(query)
-      .populate("employeeId")
-      .populate("managerId")
+      attendance = await Attendance.find(query)
+        .populate("employeeId", "name email mobile image shift siteId")
+        .populate("managerId", "name email mobile")
       .sort(sort);
+    }
+    
+    console.log(`[getAllAttendance] Final result: ${attendance.length} attendance records for userType: ${userData?.userType}, siteId: ${userData?.siteId || 'null'}`);
       
     res.status(200).json({ attendance });
   } catch (error) {
@@ -442,10 +628,11 @@ export const bulkStepIn = async (req, res) => {
 
     const stepIn = getCurrentISTTime();
     
-    // Get all employees for this admin
+    // Get all global employees for this shift (exclude site-specific employees)
     const employees = await Employee.find({ 
       shift: shift,
-      isWorking: false // Only employees who are not currently working
+      isWorking: false, // Only employees who are not currently working
+      siteId: null // Only global employees (not assigned to any site)
     });
 
     if (employees.length === 0) {
@@ -613,21 +800,49 @@ export const getAttendanceSummary = async (req, res) => {
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
+    const userData = req?.user;
+    const mongoose = (await import("mongoose")).default;
+    
+    // Build employee and attendance match based on user type
+    let employeeMatch = { shift: shift };
+    let attendanceMatch = {
+      shift: shift,
+      stepIn: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    };
+    
+    if (userData?.userType === 'manager') {
+      if (userData.siteId) {
+        // Site manager: show data for their site
+        const siteObjectId = new mongoose.Types.ObjectId(userData.siteId);
+        employeeMatch.siteId = siteObjectId;
+        employeeMatch.managerId = userData.id;
+        attendanceMatch.siteId = siteObjectId;
+        attendanceMatch.managerId = userData.id;
+      } else {
+        // Global manager: show global data
+        employeeMatch.siteId = null;
+        employeeMatch.managerId = userData.id;
+        attendanceMatch.siteId = null;
+        attendanceMatch.managerId = userData.id;
+      }
+    } else {
+      // Admin: show only global data
+      employeeMatch.siteId = null;
+      attendanceMatch.siteId = null;
+    }
+
     // Get total employees for this shift
-    const totalEmployees = await Employee.countDocuments({ shift: shift });
+    const totalEmployees = await Employee.countDocuments(employeeMatch);
 
     // Get present employees (optimized query with projection)
     // Count distinct employees who have stepIn on this date with this shift
     // Using aggregation for better performance on large datasets
     const presentEmployees = await Attendance.aggregate([
       {
-        $match: {
-          shift: shift,
-          stepIn: {
-            $gte: startOfDay,
-            $lte: endOfDay
-          }
-        }
+        $match: attendanceMatch
       },
       {
         $group: {

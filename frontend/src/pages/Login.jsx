@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa'
 import { adminAPI, managerAPI, setToken } from '../services/api'
 import { isAuthenticated } from '../services/auth'
+import ndLogo from '../images/Logo.jpg'
 import './Login.css'
 
 const Login = () => {
@@ -77,7 +78,7 @@ const Login = () => {
       <div className="login-card">
         <div className="login-header">
           <div className="login-logo">
-            <div className="logo-icon">ND</div>
+            <img src={ndLogo} alt="ND Enterprise Logo" className="logo-image" />
             <h1>ND Enterprise</h1>
           </div>
           <p className="login-subtitle">Admin Panel</p>

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://31.97.236.59:5656//api';
+const API_BASE_URL = 'https://api.ndenterpries.com/api';
 
 // Get token from localStorage
 const getToken = () => {

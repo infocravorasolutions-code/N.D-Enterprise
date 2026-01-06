@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5678/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://31.97.236.59:5656//api';
 
 // Get token from localStorage
 const getToken = () => {

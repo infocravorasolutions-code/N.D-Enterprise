@@ -74,3 +74,4 @@ git push origin main
 - ✅ Upload directories are excluded
 - ⚠️ Make sure to create `.env` files on your server/deployment with the actual values
 
+

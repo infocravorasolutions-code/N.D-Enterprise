@@ -107,3 +107,4 @@ await employeeAPI.create(formData, imageFile)
 - Image URLs are constructed as: `http://localhost:5678/static/{filename}`
 - Error handling is done in the API service layer
 
+

@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rootDirectory": "frontend",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ."
+}

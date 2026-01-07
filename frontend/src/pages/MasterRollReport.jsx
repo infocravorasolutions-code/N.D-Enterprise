@@ -213,6 +213,24 @@ const MasterRollReport = () => {
   const rowTotals = calculateRowTotals()
   const grandTotal = Object.values(rowTotals).reduce((sum, total) => sum + total, 0)
 
+  // Calculate attendance summary for each employee (for mobile cards)
+  const calculateEmployeeSummary = (row) => {
+    const attendance = row.attendance || {}
+    let present = 0
+    let absent = 0
+    let weekOff = 0
+    
+    daysInPeriod.forEach(({ day }) => {
+      if (attendance[day]) {
+        if (attendance[day].status === 'P') present++
+        else if (attendance[day].status === 'A') absent++
+        else if (attendance[day].status === 'W') weekOff++
+      }
+    })
+    
+    return { present, absent, weekOff }
+  }
+
   const exportToPDF = async () => {
     try {
       console.log('PDF export button clicked')
@@ -522,15 +540,15 @@ const MasterRollReport = () => {
           <p className="page-subtitle">Form XVI 1 - January 2026</p>
         </div>
             <div className="header-actions">
-              <button className="btn-icon" onClick={fetchMusterRollData} disabled={loading}>
+              <button className="btn-icon" onClick={fetchMusterRollData} disabled={loading} title="Refresh">
                 <FaSync />
                 <span>Refresh</span>
               </button>
-              <button className="btn-icon" onClick={exportToPDF} disabled={loading || filteredData.length === 0}>
+              <button className="btn-icon" onClick={exportToPDF} disabled={loading || filteredData.length === 0} title="Export to PDF">
                 <FaFilePdf />
                 <span>PDF</span>
               </button>
-              <button className="btn-icon btn-icon-active" onClick={exportToExcel} disabled={loading || filteredData.length === 0}>
+              <button className="btn-icon btn-icon-active" onClick={exportToExcel} disabled={loading || filteredData.length === 0} title="Export to Excel">
                 <FaFileExcel />
                 <span>Excel</span>
               </button>
@@ -604,8 +622,71 @@ const MasterRollReport = () => {
             <span className="legend-item"><span className="legend-badge badge-w">W</span> Week Off</span>
             <span className="legend-item"><span className="legend-badge badge-n">-</span> No Record</span>
           </div>
-          <div className="table-container">
-            <table className="data-table muster-table">
+          {/* Mobile Card View */}
+          <div className="muster-mobile-cards mobile-only">
+            {loading ? (
+              <div className="empty-state">Loading...</div>
+            ) : filteredData.length === 0 ? (
+              <div className="empty-state">No data available</div>
+            ) : (
+              filteredData.map((row, index) => {
+                const summary = calculateEmployeeSummary(row)
+                return (
+                  <div key={row.employeeId || index} className="muster-card-mobile">
+                    <div className="muster-card-header">
+                      <div className="muster-card-info">
+                        <h3 className="muster-card-name">{row.name}</h3>
+                        <p className="muster-card-shift">{row.shift || 'N/A'}</p>
+                      </div>
+                      <div className="muster-card-summary">
+                        <span className="summary-item summary-present">{summary.present}P</span>
+                        <span className="summary-item summary-absent">{summary.absent}A</span>
+                        <span className="summary-item summary-weekoff">{summary.weekOff}W</span>
+                      </div>
+                    </div>
+                    <div className="muster-card-attendance">
+                      <div className="attendance-days-header">
+                        {daysInPeriod.map(({ day }) => (
+                          <div key={day} className="attendance-day-header">{day}</div>
+                        ))}
+                      </div>
+                      <div className="attendance-days-content">
+                        {daysInPeriod.map(({ day }) => (
+                          <div key={day} className="attendance-day-cell">
+                            {row.attendance && row.attendance[day] ? (
+                              <div className="attendance-day-content">
+                                <div className={`attendance-day-status badge-${row.attendance[day].status.toLowerCase()}`}>
+                                  {row.attendance[day].status}
+                                </div>
+                                {row.attendance[day].stepIn && (
+                                  <div className="attendance-day-time attendance-time-in">
+                                    {row.attendance[day].stepIn}
+                                  </div>
+                                )}
+                                {row.attendance[day].stepOut && (
+                                  <div className="attendance-day-time attendance-time-out">
+                                    {row.attendance[day].stepOut}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="attendance-day-empty">-</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="table-wrapper-mobile desktop-only">
+            <div className="scroll-hint">← Swipe to see all days →</div>
+            <div className="table-container">
+              <table className="data-table muster-table">
               <thead>
                 <tr>
                   <th className="sticky-col">SR</th>
@@ -675,7 +756,8 @@ const MasterRollReport = () => {
                   </>
                 )}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </div>
       </div>

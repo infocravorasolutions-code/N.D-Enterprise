@@ -19,9 +19,19 @@ const EditSite = () => {
   const [fetching, setFetching] = useState(true)
   const [errors, setErrors] = useState({})
 
+  // Check if readonly admin with assigned site
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  const isReadonlyAdminWithSite = userType === 'admin' && userData.role === 'readonly' && userData.siteId
+
   useEffect(() => {
+    // Readonly admins cannot edit sites - redirect to their site
+    if (isReadonlyAdminWithSite) {
+      navigate(`/sites/${userData.siteId}`, { replace: true })
+      return
+    }
     fetchSiteData()
-  }, [id])
+  }, [id, isReadonlyAdminWithSite, userData.siteId, navigate])
 
   const fetchSiteData = async () => {
     try {

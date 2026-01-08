@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 import Login from './pages/Login'
@@ -39,9 +39,63 @@ const AdminOnlyRoute = ({ children }) => {
   return children
 }
 
+// Readonly Admin Site Redirect Component
+const ReadonlyAdminRedirect = () => {
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  const location = useLocation()
+  
+  // Only redirect if readonly admin is NOT already on a site route
+  if (userType === 'admin' && userData.role === 'readonly' && userData.siteId) {
+    const currentPath = location.pathname
+    // Don't redirect if already on a site route (site details or sub-pages)
+    // Allow access to: /sites/:id, /sites/:id/employees, /sites/:id/managers, etc.
+    if (!currentPath.startsWith('/sites/')) {
+      return <Navigate to={`/sites/${userData.siteId}`} replace />
+    }
+    // If on /sites route (list), redirect to their assigned site
+    if (currentPath === '/sites') {
+      return <Navigate to={`/sites/${userData.siteId}`} replace />
+    }
+  }
+  return null
+}
+
+// Sites List Route - redirect readonly admins to their site
+const SitesRoute = ({ children }) => {
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  
+  if (userType === 'admin' && userData.role === 'readonly' && userData.siteId) {
+    return <Navigate to={`/sites/${userData.siteId}`} replace />
+  }
+  return <AdminOnlyRoute>{children}</AdminOnlyRoute>
+}
+
+// Site Sub-Routes - Allow readonly admins to access their assigned site's sub-pages
+const SiteSubRoute = ({ children }) => {
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  
+  // Readonly admins are still admins, so they can access admin routes
+  // The individual pages will check if they're accessing their assigned site
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />
+  }
+  if (userType !== 'admin') {
+    return <Navigate to="/dashboard" replace />
+  }
+  return children
+}
+
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  // Check if readonly admin with assigned site (should hide sidebar)
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  const isReadonlyAdminWithSite = userType === 'admin' && userData.role === 'readonly' && userData.siteId
 
   useEffect(() => {
     const handleResize = () => {
@@ -79,19 +133,35 @@ function App() {
           element={
             <ProtectedRoute>
               <div className="app-container">
-                {isMobile && sidebarOpen && (
+                {!isReadonlyAdminWithSite && isMobile && sidebarOpen && (
                   <div className="sidebar-overlay" onClick={closeSidebar}></div>
                 )}
-                <Header onMenuClick={toggleSidebar} isMobile={isMobile} />
-                <Sidebar 
-                  isOpen={sidebarOpen} 
-                  toggleSidebar={toggleSidebar}
+                <Header 
+                  onMenuClick={toggleSidebar} 
                   isMobile={isMobile}
-                  onNavClick={closeSidebar}
+                  hideMenu={isReadonlyAdminWithSite}
                 />
-                <div className={`main-content ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+                {!isReadonlyAdminWithSite && (
+                  <Sidebar 
+                    isOpen={sidebarOpen} 
+                    toggleSidebar={toggleSidebar}
+                    isMobile={isMobile}
+                    onNavClick={closeSidebar}
+                  />
+                )}
+                <div className={`main-content ${isReadonlyAdminWithSite ? 'full-width' : (sidebarOpen ? 'sidebar-open' : 'sidebar-closed')}`}>
+                  <ReadonlyAdminRedirect />
                   <Routes>
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/" element={
+                      (() => {
+                        const userData = JSON.parse(localStorage.getItem('user') || '{}')
+                        const userType = localStorage.getItem('userType')
+                        if (userType === 'admin' && userData.role === 'readonly' && userData.siteId) {
+                          return <Navigate to={`/sites/${userData.siteId}`} replace />
+                        }
+                        return <Navigate to="/dashboard" replace />
+                      })()
+                    } />
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/employees" element={<Employees />} />
                     <Route path="/supervisor" element={<AdminOnlyRoute><Supervisor /></AdminOnlyRoute>} />
@@ -99,15 +169,15 @@ function App() {
                     <Route path="/master-roll-report" element={<AdminOnlyRoute><MasterRollReport /></AdminOnlyRoute>} />
                     <Route path="/attendance-reports" element={<AttendanceReports />} />
                     <Route path="/summary-report" element={<SummaryReport />} />
-                    <Route path="/sites" element={<AdminOnlyRoute><Sites /></AdminOnlyRoute>} />
+                    <Route path="/sites" element={<SitesRoute><Sites /></SitesRoute>} />
                     <Route path="/sites/new" element={<AdminOnlyRoute><CreateSite /></AdminOnlyRoute>} />
-                    <Route path="/sites/:id" element={<AdminOnlyRoute><SiteDetails /></AdminOnlyRoute>} />
-                    <Route path="/sites/:id/edit" element={<AdminOnlyRoute><EditSite /></AdminOnlyRoute>} />
-                    <Route path="/sites/:id/employees" element={<AdminOnlyRoute><SiteEmployees /></AdminOnlyRoute>} />
-                    <Route path="/sites/:id/managers" element={<AdminOnlyRoute><SiteManagers /></AdminOnlyRoute>} />
-                    <Route path="/sites/:id/attendance" element={<AdminOnlyRoute><SiteAttendance /></AdminOnlyRoute>} />
-                    <Route path="/sites/:id/muster-roll" element={<AdminOnlyRoute><SiteMasterRollReport /></AdminOnlyRoute>} />
-                    <Route path="/sites/:id/summary-report" element={<AdminOnlyRoute><SiteSummaryReport /></AdminOnlyRoute>} />
+                    <Route path="/sites/:id" element={<SiteSubRoute><SiteDetails /></SiteSubRoute>} />
+                    <Route path="/sites/:id/edit" element={<SiteSubRoute><EditSite /></SiteSubRoute>} />
+                    <Route path="/sites/:id/employees" element={<SiteSubRoute><SiteEmployees /></SiteSubRoute>} />
+                    <Route path="/sites/:id/managers" element={<SiteSubRoute><SiteManagers /></SiteSubRoute>} />
+                    <Route path="/sites/:id/attendance" element={<SiteSubRoute><SiteAttendance /></SiteSubRoute>} />
+                    <Route path="/sites/:id/muster-roll" element={<SiteSubRoute><SiteMasterRollReport /></SiteSubRoute>} />
+                    <Route path="/sites/:id/summary-report" element={<SiteSubRoute><SiteSummaryReport /></SiteSubRoute>} />
                   </Routes>
                 </div>
               </div>

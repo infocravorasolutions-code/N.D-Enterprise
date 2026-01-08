@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { FaCamera, FaUpload, FaUser, FaTimes } from 'react-icons/fa'
 import Modal from './Modal'
 import { managerAPI } from '../services/api'
+import { getStaticUrl } from '../config'
 import './AddEmployeeModal.css'
 
 const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false, siteId = null }) => {
@@ -37,9 +38,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false
         })
         // Set existing photo URL if available
         if (employee.image) {
-          const imageUrl = employee.image.startsWith('http') 
-            ? employee.image 
-            : `http://localhost:5678/static/${employee.image}`
+          const imageUrl = getStaticUrl(employee.image)
           setExistingPhotoUrl(imageUrl)
         } else {
           setExistingPhotoUrl(null)

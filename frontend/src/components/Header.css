@@ -143,6 +143,29 @@
   transform: scale(0.9);
 }
 
+/* Logout Button Specific Styles */
+.header-logout-btn {
+  background: #ef4444;
+  border-color: #dc2626;
+  color: white;
+  min-width: auto;
+  padding: 0 12px;
+}
+
+.header-logout-btn:hover {
+  background: #dc2626;
+  border-color: #b91c1c;
+}
+
+.header-logout-btn:active {
+  background: #b91c1c;
+  border-color: #991b1b;
+}
+
+.header-logout-btn svg {
+  color: white;
+}
+
 /* Refresh Button Specific Styles */
 .header-refresh-btn {
   background: #eff6ff;

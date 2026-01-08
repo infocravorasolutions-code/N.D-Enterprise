@@ -10,6 +10,7 @@ import{
     createEmployee,
     updateEmployee,
     deleteEmployee,
+    deleteMultipleEmployees,
     getEmployees,
     createEmployeeByManager
 } from "../controller/employee.controller.js"
@@ -35,14 +36,25 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+// All specific routes must come before parameterized routes (/:id)
+// This prevents Express from matching "bulk-delete" as an ID parameter
+
+// Get all employees
+router.get("/all", authenticateUser, getEmployees)
+
+// Manager-specific employee creation
+router.post("/manager", authenticateUser, upload.single("image"), createEmployeeByManager)
+
+// Bulk delete - must be before /:id route
+router.delete("/bulk-delete", authenticateUser, deleteMultipleEmployees)
+
 // Create employee (with optional image)
 router.post("/", authenticateUser, upload.single("image"), createEmployee);
 
-// Update employee (with optional image)
+// Update employee (with optional image) - parameterized route
 router.put("/:id", authenticateUser, upload.single("image"), updateEmployee);
 
-router.delete("/:id",authenticateUser,deleteEmployee)
-router.get("/all",authenticateUser,getEmployees)
-router.post("/manager",authenticateUser,upload.single("image"),createEmployeeByManager)
+// Delete single employee - parameterized route (must be last)
+router.delete("/:id", authenticateUser, deleteEmployee)
 
 export default router;

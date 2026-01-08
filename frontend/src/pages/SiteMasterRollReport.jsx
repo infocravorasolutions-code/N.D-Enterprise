@@ -26,10 +26,20 @@ const SiteMasterRollReport = () => {
     selectedPeriod: ''
   })
 
+  // Check if readonly admin with assigned site
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  const isReadonlyAdminWithSite = userType === 'admin' && userData.role === 'readonly' && userData.siteId
+
   useEffect(() => {
+    // Check if readonly admin is trying to access a site they're not assigned to
+    if (isReadonlyAdminWithSite && userData.siteId !== id) {
+      navigate(`/sites/${userData.siteId}/muster-roll`, { replace: true })
+      return
+    }
     fetchSiteData()
     fetchEmployees()
-  }, [id])
+  }, [id, isReadonlyAdminWithSite, userData.siteId, navigate])
 
   useEffect(() => {
     if (month && year) {

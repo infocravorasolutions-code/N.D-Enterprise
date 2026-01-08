@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { FaArrowLeft, FaCalendarAlt, FaClock, FaMapMarkerAlt, FaCheckCircle, FaTimes, FaEdit, FaTrash, FaFilePdf, FaFileExcel } from 'react-icons/fa'
 import { siteAPI, attendanceAPI, employeeAPI, managerAPI } from '../services/api'
+import { getStaticUrl } from '../config'
 import AlertModal from '../components/AlertModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { useAlert, useConfirm } from '../hooks/useModal'
@@ -39,11 +40,21 @@ const SiteAttendance = () => {
   const { alertState, showAlert, hideAlert } = useAlert()
   const { confirmState, showConfirm, hideConfirm } = useConfirm()
 
+  // Check if readonly admin with assigned site
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  const isReadonlyAdminWithSite = userType === 'admin' && userData.role === 'readonly' && userData.siteId
+
   useEffect(() => {
+    // Check if readonly admin is trying to access a site they're not assigned to
+    if (isReadonlyAdminWithSite && userData.siteId !== id) {
+      navigate(`/sites/${userData.siteId}/attendance`, { replace: true })
+      return
+    }
     fetchSiteData()
     fetchSiteEmployees()
     fetchSiteManagers()
-  }, [id])
+  }, [id, isReadonlyAdminWithSite, userData.siteId, navigate])
 
   useEffect(() => {
     fetchAttendance()
@@ -542,11 +553,8 @@ const SiteAttendance = () => {
     }
   }
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5678/api'
   const getImageUrl = (image) => {
-    if (!image) return null
-    if (image.startsWith('http')) return image
-    return `${API_BASE_URL.replace('/api', '')}/static/${image}`
+    return getStaticUrl(image)
   }
 
   const formatDateForInput = (dateString) => {
@@ -942,35 +950,39 @@ const SiteAttendance = () => {
                   <span style={{ fontWeight: '500', color: '#1e40af' }}>
                     {selectedRecords.size} record(s) selected
                   </span>
-                  <button
-                    className="btn-secondary"
-                    onClick={handleBulkDelete}
-                    disabled={isDeleting}
-                    style={{ 
-                      background: '#dc2626', 
-                      color: 'white',
-                      border: 'none'
-                    }}
-                  >
-                    <FaTrash style={{ marginRight: '8px' }} />
-                    {isDeleting ? 'Deleting...' : `Delete Selected (${selectedRecords.size})`}
-                  </button>
+                  {!isReadonlyAdminWithSite && (
+                    <button
+                      className="btn-secondary"
+                      onClick={handleBulkDelete}
+                      disabled={isDeleting}
+                      style={{ 
+                        background: '#dc2626', 
+                        color: 'white',
+                        border: 'none'
+                      }}
+                    >
+                      <FaTrash style={{ marginRight: '8px' }} />
+                      {isDeleting ? 'Deleting...' : `Delete Selected (${selectedRecords.size})`}
+                    </button>
+                  )}
                 </div>
               )}
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '40px' }}>
-                      <input
-                        type="checkbox"
-                        checked={isAllSelected}
-                        ref={(input) => {
-                          if (input) input.indeterminate = isSomeSelected && !isAllSelected
-                        }}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        style={{ cursor: 'pointer' }}
-                      />
-                    </th>
+                    {!isReadonlyAdminWithSite && (
+                      <th style={{ width: '40px' }}>
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          ref={(input) => {
+                            if (input) input.indeterminate = isSomeSelected && !isAllSelected
+                          }}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </th>
+                    )}
                     <th>Employee</th>
                     <th>Manager</th>
                     <th>Shift</th>
@@ -979,20 +991,22 @@ const SiteAttendance = () => {
                     <th>Duration</th>
                     <th>Location</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    {!isReadonlyAdminWithSite && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {attendance.map((record) => (
-                    <tr key={record._id} style={{ background: selectedRecords.has(record._id) ? '#eff6ff' : 'transparent' }}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedRecords.has(record._id)}
-                          onChange={() => handleSelectRecord(record._id)}
-                          style={{ cursor: 'pointer' }}
-                        />
-                      </td>
+                    <tr key={record._id} style={{ background: !isReadonlyAdminWithSite && selectedRecords.has(record._id) ? '#eff6ff' : 'transparent' }}>
+                      {!isReadonlyAdminWithSite && (
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedRecords.has(record._id)}
+                            onChange={() => handleSelectRecord(record._id)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </td>
+                      )}
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {getImageUrl(record.employeeId?.image) && (
@@ -1057,22 +1071,24 @@ const SiteAttendance = () => {
                         </span>
                       </td>
                       <td>
-                        <div className="action-buttons">
-                          <button 
-                            className="action-btn action-edit" 
-                            title="Edit"
-                            onClick={() => handleEdit(record)}
-                          >
-                            <FaEdit />
-                          </button>
-                          <button 
-                            className="action-btn action-delete" 
-                            title="Delete"
-                            onClick={() => handleDelete(record)}
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
+                        {!isReadonlyAdminWithSite && (
+                          <div className="action-buttons">
+                            <button 
+                              className="action-btn action-edit" 
+                              title="Edit"
+                              onClick={() => handleEdit(record)}
+                            >
+                              <FaEdit />
+                            </button>
+                            <button 
+                              className="action-btn action-delete" 
+                              title="Delete"
+                              onClick={() => handleDelete(record)}
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

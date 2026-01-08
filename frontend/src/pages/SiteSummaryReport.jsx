@@ -20,10 +20,20 @@ const SiteSummaryReport = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
+  // Check if readonly admin with assigned site
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  const isReadonlyAdminWithSite = userType === 'admin' && userData.role === 'readonly' && userData.siteId
+
   useEffect(() => {
+    // Check if readonly admin is trying to access a site they're not assigned to
+    if (isReadonlyAdminWithSite && userData.siteId !== id) {
+      navigate(`/sites/${userData.siteId}/summary-report`, { replace: true })
+      return
+    }
     fetchSiteData()
     fetchAttendanceSummary()
-  }, [id, fromDate, toDate])
+  }, [id, fromDate, toDate, isReadonlyAdminWithSite, userData.siteId, navigate])
 
   const fetchSiteData = async () => {
     try {

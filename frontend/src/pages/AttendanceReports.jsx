@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { FaEdit, FaTrash, FaTimes, FaCalendarAlt, FaClock, FaCheckCircle, FaMapMarkerAlt, FaFilePdf, FaFileExcel } from 'react-icons/fa'
 import { attendanceAPI, employeeAPI, managerAPI } from '../services/api'
+import { getStaticUrl } from '../config'
 import Pagination from '../components/Pagination'
 import AlertModal from '../components/AlertModal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -169,11 +170,8 @@ const AttendanceReports = () => {
     return `${hours}h ${minutes}m`
   }
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5678/api'
   const getImageUrl = (image) => {
-    if (!image) return null
-    if (image.startsWith('http')) return image
-    return `${API_BASE_URL.replace('/api', '')}/static/${image}`
+    return getStaticUrl(image)
   }
 
   const getStatus = (record) => {

@@ -14,10 +14,20 @@ const SiteManagers = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingManager, setEditingManager] = useState(null)
 
+  // Check if readonly admin with assigned site
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  const isReadonlyAdminWithSite = userType === 'admin' && userData.role === 'readonly' && userData.siteId
+
   useEffect(() => {
+    // Check if readonly admin is trying to access a site they're not assigned to
+    if (isReadonlyAdminWithSite && userData.siteId !== id) {
+      navigate(`/sites/${userData.siteId}/managers`, { replace: true })
+      return
+    }
     fetchSiteData()
     fetchManagers()
-  }, [id])
+  }, [id, isReadonlyAdminWithSite, userData.siteId, navigate])
 
   const fetchSiteData = async () => {
     try {
@@ -135,10 +145,12 @@ const SiteManagers = () => {
             <h1>{site?.name || 'Site'} - Managers</h1>
             <p className="page-subtitle">View and manage managers assigned to this site</p>
           </div>
-          <button className="btn-primary" onClick={handleAddManager}>
-            <FaPlus style={{ marginRight: '8px' }} />
-            Add Manager
-          </button>
+          {!isReadonlyAdminWithSite && (
+            <button className="btn-primary" onClick={handleAddManager}>
+              <FaPlus style={{ marginRight: '8px' }} />
+              Add Manager
+            </button>
+          )}
         </div>
       </div>
 
@@ -251,22 +263,24 @@ const SiteManagers = () => {
                       <span className={`status-badge ${manager.isActive ? 'status-active' : 'status-inactive'}`}>
                         {manager.isActive ? 'Active' : 'Inactive'}
                       </span>
-                      <div className="action-buttons">
-                        <button 
-                          className="action-btn action-edit" 
-                          title="Edit"
-                          onClick={() => handleEditManager(manager)}
-                        >
-                          <FaEdit />
-                        </button>
-                        <button 
-                          className="action-btn action-delete" 
-                          title="Delete"
-                          onClick={() => handleDelete(manager._id)}
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
+                      {!isReadonlyAdminWithSite && (
+                        <div className="action-buttons">
+                          <button 
+                            className="action-btn action-edit" 
+                            title="Edit"
+                            onClick={() => handleEditManager(manager)}
+                          >
+                            <FaEdit />
+                          </button>
+                          <button 
+                            className="action-btn action-delete" 
+                            title="Delete"
+                            onClick={() => handleDelete(manager._id)}
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

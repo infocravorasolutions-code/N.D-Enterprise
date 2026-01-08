@@ -20,6 +20,10 @@
   margin-left: 80px;
 }
 
+.main-content.full-width {
+  margin-left: 0;
+}
+
 /* Sidebar Overlay for Mobile */
 .sidebar-overlay {
   position: fixed;

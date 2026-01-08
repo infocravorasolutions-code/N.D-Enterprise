@@ -30,13 +30,16 @@ const Sidebar = ({ isOpen, toggleSidebar, isMobile, onNavClick }) => {
   const userName = userData.name || 'User'
   const userInitial = userName.charAt(0).toUpperCase()
 
+  // Check if readonly admin with assigned site
+  const isReadonlyAdminWithSite = userType === 'admin' && userData.role === 'readonly' && userData.siteId
+
   // Admin menu items
   const adminMenuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: FaChartBar },
     { path: '/employees', label: 'Employees', icon: FaUsers },
     { path: '/supervisor', label: 'Supervisor', icon: FaUserTie },
-    { path: '/sites', label: 'Sites & Events', icon: FaBuilding },
-    { path: '/admins', label: 'Admins', icon: FaShieldAlt },
+    ...(isReadonlyAdminWithSite ? [] : [{ path: '/sites', label: 'Sites & Events', icon: FaBuilding }]), // Hide for readonly admins with site
+    ...(isReadonlyAdminWithSite ? [] : [{ path: '/admins', label: 'Admins', icon: FaShieldAlt }]), // Hide for readonly admins with site
     { path: '/master-roll-report', label: 'Muster Roll', icon: FaClipboardList },
     { path: '/attendance-reports', label: 'Reports', icon: FaCalendarAlt },
     { path: '/summary-report', label: 'Summary Report', icon: FaChartLine },

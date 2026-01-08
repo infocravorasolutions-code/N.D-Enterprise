@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { FaEdit, FaTrash, FaTimes, FaPlus } from 'react-icons/fa'
 import Pagination from '../components/Pagination'
-import { adminAPI } from '../services/api'
+import { adminAPI, siteAPI } from '../services/api'
 import './Page.css'
 
 const Admins = () => {
@@ -18,14 +18,26 @@ const Admins = () => {
     password: '',
     mobile: '',
     address: '',
-    role: 'superadmin'
+    role: 'superadmin',
+    siteId: ''
   })
   const [formErrors, setFormErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const [sites, setSites] = useState([])
 
   useEffect(() => {
     fetchAdmins()
+    fetchSites()
   }, [])
+
+  const fetchSites = async () => {
+    try {
+      const response = await siteAPI.getAll()
+      setSites(response.data || [])
+    } catch (err) {
+      console.error('Error fetching sites:', err)
+    }
+  }
 
   const fetchAdmins = async () => {
     try {
@@ -64,7 +76,8 @@ const Admins = () => {
       password: '',
       mobile: '',
       address: '',
-      role: 'superadmin'
+      role: 'superadmin',
+      siteId: ''
     })
     setFormErrors({})
     setIsModalOpen(true)
@@ -78,7 +91,8 @@ const Admins = () => {
       password: '', // Don't pre-fill password
       mobile: admin.mobile || '',
       address: admin.address || '',
-      role: admin.role || 'superadmin'
+      role: admin.role || 'superadmin',
+      siteId: admin.siteId?._id || admin.siteId || ''
     })
     setFormErrors({})
     setIsModalOpen(true)
@@ -93,7 +107,8 @@ const Admins = () => {
       password: '',
       mobile: '',
       address: '',
-      role: 'superadmin'
+      role: 'superadmin',
+      siteId: ''
     })
     setFormErrors({})
   }
@@ -122,6 +137,9 @@ const Admins = () => {
     if (formData.password && formData.password.length < 6) errors.password = 'Password must be at least 6 characters'
     if (!formData.mobile.trim()) errors.mobile = 'Mobile is required'
     if (!formData.address.trim()) errors.address = 'Address is required'
+    if (formData.role === 'readonly' && !formData.siteId) {
+      errors.siteId = 'Site selection is required for readonly admins'
+    }
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -139,7 +157,8 @@ const Admins = () => {
         email: formData.email,
         mobile: formData.mobile,
         address: formData.address,
-        role: formData.role
+        role: formData.role,
+        siteId: formData.role === 'readonly' && formData.siteId ? formData.siteId : null
       }
 
       if (editingAdmin) {
@@ -197,6 +216,7 @@ const Admins = () => {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Role</th>
+                  <th>Assigned Site</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -204,17 +224,17 @@ const Admins = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="empty-state">Loading...</td>
+                    <td colSpan="7" className="empty-state">Loading...</td>
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan="6" className="empty-state" style={{ color: '#dc2626' }}>
+                    <td colSpan="7" className="empty-state" style={{ color: '#dc2626' }}>
                       {error}
                     </td>
                   </tr>
                 ) : admins.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="empty-state">No admins found</td>
+                    <td colSpan="7" className="empty-state">No admins found</td>
                   </tr>
                 ) : (
                   paginatedAdmins.map((admin) => (
@@ -222,7 +242,18 @@ const Admins = () => {
                       <td className="text-mono">{admin._id?.substring(0, 12)}...</td>
                       <td>{admin.name}</td>
                       <td>{admin.email}</td>
-                      <td>{admin.role || 'Admin'}</td>
+                      <td>
+                        <span className={`status-badge ${admin.role === 'superadmin' ? 'status-active' : 'status-on-leave'}`}>
+                          {admin.role === 'superadmin' ? 'Super Admin' : 'Read Only'}
+                        </span>
+                      </td>
+                      <td>
+                        {admin.role === 'readonly' && admin.siteId ? (
+                          admin.siteId?.name || 'Assigned Site'
+                        ) : (
+                          <span style={{ color: '#9ca3af' }}>N/A</span>
+                        )}
+                      </td>
                       <td>
                         <span className="status-badge status-active">
                           Active
@@ -371,6 +402,28 @@ const Admins = () => {
                   <option value="readonly">Read Only</option>
                 </select>
               </div>
+
+              {formData.role === 'readonly' && (
+                <div className="form-group">
+                  <label className="form-label">Assign to Site <span className="required">*</span></label>
+                  <select
+                    name="siteId"
+                    className={`form-input ${formErrors.siteId ? 'input-error' : ''}`}
+                    value={formData.siteId}
+                    onChange={handleChange}
+                    required={formData.role === 'readonly'}
+                  >
+                    <option value="">Select a site</option>
+                    {sites.map((site) => (
+                      <option key={site._id} value={site._id}>
+                        {site.name} - {site.location}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.siteId && <p className="error-text">{formErrors.siteId}</p>}
+                  <p className="form-hint">Readonly admins can only view data for their assigned site</p>
+                </div>
+              )}
 
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={handleCloseModal} disabled={saving}>

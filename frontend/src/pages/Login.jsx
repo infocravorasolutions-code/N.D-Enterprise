@@ -12,7 +12,14 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated()) {
-      navigate('/dashboard', { replace: true })
+      const userData = JSON.parse(localStorage.getItem('user') || '{}')
+      const userType = localStorage.getItem('userType')
+      // If readonly admin with assigned site, redirect to that site
+      if (userType === 'admin' && userData.role === 'readonly' && userData.siteId) {
+        navigate(`/sites/${userData.siteId}`, { replace: true })
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
     }
   }, [navigate])
   const [formData, setFormData] = useState({
@@ -57,6 +64,11 @@ const Login = () => {
           localStorage.setItem('userType', formData.userType)
           if (formData.userType === 'admin') {
             localStorage.setItem('adminId', userData._id)
+            // If readonly admin with assigned site, redirect to that site
+            if (userData.role === 'readonly' && userData.siteId) {
+              navigate(`/sites/${userData.siteId}`)
+              return
+            }
           }
         }
 

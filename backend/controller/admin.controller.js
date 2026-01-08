@@ -9,9 +9,20 @@ const JWT_SECRET = process.env.JWT_SECRET
 
 export const createAdmin = async (req, res) => {
   try {
-    const { email, password, name, mobile, address } = req.body;
+    const { email, password, name, mobile, address, role, siteId } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newAdmin = new Admin({ email, password: hashedPassword, name, mobile, address });
+    
+    const adminData = {
+      email,
+      password: hashedPassword,
+      name,
+      mobile,
+      address,
+      role: role || 'superadmin',
+      siteId: siteId || null // Only set siteId if provided (for readonly admins)
+    };
+    
+    const newAdmin = new Admin(adminData);
     await newAdmin.save();
     res.status(201).json({ message: "Admin created successfully", admin: newAdmin });
   } catch (error) {
@@ -26,7 +37,8 @@ export const createAdmin = async (req, res) => {
 
 export const getAdmin = async (req, res) => {
   try {
-    const admin = await Admin.findById(req.params.id);
+    const admin = await Admin.findById(req.params.id)
+      .populate('siteId', 'name location');
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
@@ -38,7 +50,8 @@ export const getAdmin = async (req, res) => {
 
 export const getAdminById = async (req, res) => {
   try {
-    const admin = await Admin.findById(req.params.id);
+    const admin = await Admin.findById(req.params.id)
+      .populate('siteId', 'name location');
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
@@ -53,15 +66,24 @@ export const updateAdmin = async (req, res) => {
     const updateData = { ...req.body };
 
     // Only hash password if it's being updated
-    if (updateData.password) {
+    if (updateData.password && updateData.password.trim() !== '') {
       updateData.password = await bcrypt.hash(updateData.password, 10);
+    } else {
+      // Remove password from updateData if it's empty (don't update password)
+      delete updateData.password;
+    }
+
+    // Handle siteId - only set if provided, null if not provided for readonly admins
+    if (updateData.role === 'readonly' && updateData.siteId === '') {
+      updateData.siteId = null;
     }
 
     const updatedAdmin = await Admin.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true }
-    );
+    ).populate('siteId', 'name location');
+    
     if (!updatedAdmin) {
       return res.status(404).json({ message: "Admin not found" });
     }
@@ -85,7 +107,9 @@ export const deleteAdmin = async (req, res) => {
 
 export const getAllAdmins = async (req, res) => {
   try {
-    const admins = await Admin.find();
+    const admins = await Admin.find()
+      .populate('siteId', 'name location')
+      .sort({ createdAt: -1 });
     res.status(200).json(admins);
   } catch (error) {
     res.status(500).json({ message: "Error fetching admins", error });

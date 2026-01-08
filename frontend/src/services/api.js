@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://api.ndenterpries.com/api';
+import { API_BASE_URL } from '../config.js';
 
 // Get token from localStorage
 const getToken = () => {
@@ -111,6 +111,13 @@ export const employeeAPI = {
     return apiCall(`/employee/${id}`, { method: 'DELETE' });
   },
   
+  deleteMultiple: (employeeIds) => {
+    return apiCall('/employee/bulk-delete', {
+      method: 'DELETE',
+      body: JSON.stringify({ employeeIds }),
+    });
+  },
+  
   // Manager-specific employee creation
   createByManager: (employeeData, imageFile) => {
     const formData = new FormData();
@@ -121,6 +128,14 @@ export const employeeAPI = {
       formData.append('image', imageFile);
     }
     return apiCallFormData('/employee/manager', formData);
+  },
+  
+  // Assign employees to a site
+  assignEmployeesToSite: (siteId, employeeIds) => {
+    return apiCall(`/site/${siteId}/assign-employees`, {
+      method: 'POST',
+      body: JSON.stringify({ employeeIds }),
+    });
   },
 };
 
@@ -322,6 +337,27 @@ export const siteAPI = {
   getAttendance: (id, params = {}) => {
     const queryString = new URLSearchParams(params).toString();
     return apiCall(`/site/${id}/attendance${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  assignEmployees: (siteId, employeeIds) => {
+    return apiCall(`/site/${siteId}/assign-employees`, {
+      method: 'POST',
+      body: JSON.stringify({ employeeIds }),
+    });
+  },
+  
+  unassignEmployees: (siteId, employeeIds) => {
+    return apiCall(`/site/${siteId}/unassign-employees`, {
+      method: 'POST',
+      body: JSON.stringify({ employeeIds }),
+    });
+  },
+  
+  reassignEmployees: (employeeIds, targetSiteId) => {
+    return apiCall(`/site/reassign-employees`, {
+      method: 'POST',
+      body: JSON.stringify({ employeeIds, targetSiteId }),
+    });
   },
 };
 

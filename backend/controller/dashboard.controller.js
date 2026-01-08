@@ -21,8 +21,18 @@ export const getDashboardData = async (req, res) => {
         // Global manager: show global employees (siteId: null)
         employeeMatch = { managerId: managerId, siteId: null };
       }
+    } else if (userData?.userType === 'admin') {
+      // Admin filtering
+      if (userData.role === 'readonly' && userData.siteId) {
+        // Readonly admin assigned to a site - show only employees for that site
+        const siteObjectId = new mongoose.Types.ObjectId(userData.siteId);
+        employeeMatch = { siteId: siteObjectId };
+      } else {
+        // Superadmin - show only global employees (siteId: null)
+        employeeMatch = { siteId: null };
+      }
     } else {
-      // Admin: show only global employees (siteId: null)
+      // Default: show only global employees (siteId: null)
       employeeMatch = { siteId: null };
     }
 
@@ -38,12 +48,21 @@ export const getDashboardData = async (req, res) => {
       isWorking: true 
     });
 
-    // Shift-wise employee count (filtered by manager and site if site manager)
-    const shiftMatch = isManager 
-      ? (userData.siteId 
-          ? { managerId: managerId, siteId: new mongoose.Types.ObjectId(userData.siteId) }
-          : { managerId: managerId, siteId: null })
-      : { siteId: null };
+    // Shift-wise employee count (filtered by manager and site)
+    let shiftMatch = {};
+    if (isManager) {
+      shiftMatch = userData.siteId 
+        ? { managerId: managerId, siteId: new mongoose.Types.ObjectId(userData.siteId) }
+        : { managerId: managerId, siteId: null };
+    } else if (userData?.userType === 'admin') {
+      if (userData.role === 'readonly' && userData.siteId) {
+        shiftMatch = { siteId: new mongoose.Types.ObjectId(userData.siteId) };
+      } else {
+        shiftMatch = { siteId: null };
+      }
+    } else {
+      shiftMatch = { siteId: null };
+    }
     
     const shiftAggregation = await Employee.aggregate([
       { $match: shiftMatch },

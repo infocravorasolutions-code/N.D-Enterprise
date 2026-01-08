@@ -28,6 +28,11 @@ const adminSchema = new Schema({
     enum: ["superadmin", "readonly"],
     default: "superadmin"
   },
+  siteId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Site',
+    default: null // null means superadmin or readonly admin not assigned to any site
+  },
   otp: String,
 otpExpires: Date,
 

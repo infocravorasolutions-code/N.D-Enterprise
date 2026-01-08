@@ -23,11 +23,21 @@ const SiteDetails = () => {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview') // overview, employees, managers, attendance
+  
+  // Check if readonly admin with assigned site
+  const userData = JSON.parse(localStorage.getItem('user') || '{}')
+  const userType = localStorage.getItem('userType')
+  const isReadonlyAdminWithSite = userType === 'admin' && userData.role === 'readonly' && userData.siteId
 
   useEffect(() => {
+    // Check if readonly admin is trying to access a site they're not assigned to
+    if (isReadonlyAdminWithSite && userData.siteId !== id) {
+      navigate(`/sites/${userData.siteId}`, { replace: true })
+      return
+    }
     fetchSiteData()
     fetchSiteStats()
-  }, [id])
+  }, [id, isReadonlyAdminWithSite, userData.siteId, navigate])
 
   const fetchSiteData = async () => {
     try {
@@ -104,14 +114,16 @@ const SiteDetails = () => {
       <div className="page-header">
         <div className="page-header-content">
           <div>
-            <button 
-              className="btn-icon" 
-              onClick={() => navigate('/sites')}
-              style={{ marginBottom: '12px' }}
-            >
-              <FaArrowLeft style={{ marginRight: '8px' }} />
-              Back to Sites
-            </button>
+            {!isReadonlyAdminWithSite && (
+              <button 
+                className="btn-icon" 
+                onClick={() => navigate('/sites')}
+                style={{ marginBottom: '12px' }}
+              >
+                <FaArrowLeft style={{ marginRight: '8px' }} />
+                Back to Sites
+              </button>
+            )}
             <h1>{site.name}</h1>
             <p className="page-subtitle">
               <FaMapMarkerAlt style={{ marginRight: '6px', display: 'inline' }} />
@@ -122,14 +134,16 @@ const SiteDetails = () => {
             <span className={`status-badge ${getStatusBadgeClass(site.status)}`}>
               {site.status?.charAt(0).toUpperCase() + site.status?.slice(1)}
             </span>
-            <button 
-              className="btn-primary"
-              onClick={() => navigate(`/sites/${id}/edit`)}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <FaEdit style={{ fontSize: '14px' }} />
-              Edit Site
-            </button>
+            {!isReadonlyAdminWithSite && (
+              <button 
+                className="btn-primary"
+                onClick={() => navigate(`/sites/${id}/edit`)}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <FaEdit style={{ fontSize: '14px' }} />
+                Edit Site
+              </button>
+            )}
           </div>
         </div>
       </div>

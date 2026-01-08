@@ -3,6 +3,7 @@ import { FaSearch, FaEdit, FaTrash, FaUser } from 'react-icons/fa'
 import AddEmployeeModal from '../components/AddEmployeeModal'
 import Pagination from '../components/Pagination'
 import { employeeAPI } from '../services/api'
+import { getStaticUrl } from '../config'
 import './Page.css'
 
 const Employees = () => {
@@ -14,6 +15,7 @@ const Employees = () => {
   const [error, setError] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [selectedEmployees, setSelectedEmployees] = useState([])
   
   // Get user type
   const userType = localStorage.getItem('userType') || 'admin'
@@ -111,9 +113,48 @@ const Employees = () => {
     try {
       await employeeAPI.delete(id)
       await fetchEmployees() // Refresh the list
+      setSelectedEmployees(prev => prev.filter(empId => empId !== id))
     } catch (err) {
       console.error('Error deleting employee:', err)
       alert(err.message || 'Failed to delete employee')
+    }
+  }
+
+  const handleSelectEmployee = (id) => {
+    setSelectedEmployees(prev => 
+      prev.includes(id) 
+        ? prev.filter(empId => empId !== id)
+        : [...prev, id]
+    )
+  }
+
+  const handleSelectAll = () => {
+    if (selectedEmployees.length === paginatedEmployees.length) {
+      setSelectedEmployees([])
+    } else {
+      setSelectedEmployees(paginatedEmployees.map(emp => emp._id))
+    }
+  }
+
+  const handleDeleteMultiple = async () => {
+    if (selectedEmployees.length === 0) {
+      alert('Please select at least one employee to delete')
+      return
+    }
+
+    const confirmMessage = `Are you sure you want to delete ${selectedEmployees.length} employee(s)? This action cannot be undone.`
+    if (!window.confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      await employeeAPI.deleteMultiple(selectedEmployees)
+      await fetchEmployees() // Refresh the list
+      setSelectedEmployees([])
+      alert(`Successfully deleted ${selectedEmployees.length} employee(s)`)
+    } catch (err) {
+      console.error('Error deleting employees:', err)
+      alert(err.message || 'Failed to delete employees')
     }
   }
 
@@ -137,12 +178,16 @@ const Employees = () => {
   // Reset to page 1 when search changes
   useEffect(() => {
     setCurrentPage(1)
+    setSelectedEmployees([]) // Clear selections when search changes
   }, [searchQuery])
 
+  // Clear selections when page changes
+  useEffect(() => {
+    setSelectedEmployees([])
+  }, [currentPage])
+
   const getImageUrl = (image) => {
-    if (!image) return null
-    if (image.startsWith('http')) return image
-    return `http://localhost:5678/static/${image}`
+    return getStaticUrl(image)
   }
 
   return (
@@ -155,9 +200,20 @@ const Employees = () => {
               {isManager ? 'Manage your assigned employees.' : 'Manage all employees in the system.'}
             </p>
           </div>
-          <button className="btn-primary" onClick={handleAddEmployee}>
-            + Add Employee
-          </button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {selectedEmployees.length > 0 && (
+              <button 
+                className="btn-primary" 
+                onClick={handleDeleteMultiple}
+                style={{ background: '#dc2626' }}
+              >
+                Delete Selected ({selectedEmployees.length})
+              </button>
+            )}
+            <button className="btn-primary" onClick={handleAddEmployee}>
+              + Add Employee
+            </button>
+          </div>
         </div>
       </div>
       <div className="page-content">
@@ -176,6 +232,14 @@ const Employees = () => {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th style={{ width: '50px' }}>
+                    <input
+                      type="checkbox"
+                      checked={paginatedEmployees.length > 0 && selectedEmployees.length === paginatedEmployees.length}
+                      onChange={handleSelectAll}
+                      style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                    />
+                  </th>
                   <th>Photo</th>
                   <th>Name</th>
                   <th>ID</th>
@@ -188,21 +252,29 @@ const Employees = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="empty-state">Loading...</td>
+                    <td colSpan="8" className="empty-state">Loading...</td>
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan="7" className="empty-state" style={{ color: '#dc2626' }}>
+                    <td colSpan="8" className="empty-state" style={{ color: '#dc2626' }}>
                       {error}
                     </td>
                   </tr>
                 ) : filteredEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="empty-state">No employees found</td>
+                    <td colSpan="8" className="empty-state">No employees found</td>
                   </tr>
                 ) : (
                   paginatedEmployees.map((employee) => (
                     <tr key={employee._id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedEmployees.includes(employee._id)}
+                          onChange={() => handleSelectEmployee(employee._id)}
+                          style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                        />
+                      </td>
                       <td>
                         <div className="employee-photo">
                           {getImageUrl(employee.image) ? (

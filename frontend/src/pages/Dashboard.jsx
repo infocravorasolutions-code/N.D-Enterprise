@@ -19,6 +19,7 @@ import {
   FaCalendarAlt
 } from 'react-icons/fa'
 import { dashboardAPI, employeeAPI, attendanceAPI, siteAPI } from '../services/api'
+import { getStaticUrl } from '../config'
 import AddEmployeeModal from '../components/AddEmployeeModal'
 import ClockInModal from '../components/ClockInModal'
 import './Page.css'
@@ -251,9 +252,7 @@ const Dashboard = () => {
   }
 
   const getImageUrl = (image) => {
-    if (!image) return null
-    if (image.startsWith('http')) return image
-    return `http://localhost:5678/static/${image}`
+    return getStaticUrl(image)
   }
 
   // Normalize shift keys to handle case variations

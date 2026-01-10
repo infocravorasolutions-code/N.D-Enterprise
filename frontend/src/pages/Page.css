@@ -2,7 +2,10 @@
   padding: 30px;
   min-height: 100vh;
   width: 100%;
+  max-width: 100vw;
   box-sizing: border-box;
+  overflow-x: hidden;
+  position: relative;
 }
 
 .page-header {
@@ -166,6 +169,9 @@
   border-radius: 6px;
   font-size: 16px;
   min-width: 150px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
@@ -1654,5 +1660,702 @@
   .muster-mobile-cards.mobile-only {
     display: flex !important;
   }
+}
+
+/* ============================================
+   COMPREHENSIVE REACT NATIVE WEBVIEW RESPONSIVE FIXES
+   ============================================ */
+
+/* Ensure all containers are responsive */
+* {
+  max-width: 100%;
+}
+
+img, video, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent horizontal overflow */
+body, html, #root, .app-container, .main-content {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+}
+
+/* Ensure all page containers are responsive */
+.page-container,
+.content-section,
+.stats-grid,
+.filters-container {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive buttons - ensure touch targets are at least 44px */
+button, .btn-primary, .btn-secondary, .btn-icon,
+a.button, input[type="button"], input[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive tables - ensure they scroll horizontally */
+.table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+/* Ensure tables don't break layout */
+.data-table,
+.muster-table {
+  width: 100%;
+  table-layout: auto;
+}
+
+/* Responsive forms */
+form, .form-group, .form-row {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive modals */
+.modal-content {
+  max-width: 95vw !important;
+  width: 95vw !important;
+  margin: 20px auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    margin: 0;
+    border-radius: 0;
+    height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+}
+
+/* Responsive search bars */
+.search-bar, .search-input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive cards */
+.stat-card, .content-section, .summary-card {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive grid layouts */
+.stats-grid, .quick-actions-grid {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Fix for very small screens (320px - 375px) */
+@media (max-width: 375px) {
+  .page-container {
+    padding: 12px;
+  }
+
+  .page-header h1 {
+    font-size: 20px;
+    word-wrap: break-word;
+  }
+
+  .page-subtitle {
+    font-size: 12px;
+  }
+
+  .btn-primary, .btn-secondary {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .stat-card {
+    padding: 12px;
+  }
+
+  .content-section {
+    padding: 12px;
+  }
+
+  .form-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 10px 12px;
+  }
+}
+
+/* Landscape orientation fixes */
+@media (max-width: 768px) and (orientation: landscape) {
+  .page-container {
+    padding: 12px;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+  }
+
+  .page-header h1 {
+    font-size: 22px;
+  }
+}
+
+/* Ensure all text is readable on mobile */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+  h3 { font-size: 18px; }
+  h4 { font-size: 16px; }
+  p, span, div { font-size: 14px; }
+}
+
+/* Fix for React Native WebView specific issues */
+@supports (-webkit-touch-callout: none) {
+  /* iOS WebView specific */
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  input, select, textarea {
+    font-size: 16px !important; /* Prevent zoom */
+  }
+}
+
+/* Ensure proper scrolling in WebView */
+.main-content {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Fix for fixed/sticky elements on mobile */
+@media (max-width: 768px) {
+  .sticky-col {
+    position: sticky !important;
+    z-index: 10;
+  }
+
+  .app-header {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 999;
+  }
+}
+
+/* Prevent layout shift on load */
+.page-container, .content-section {
+  min-height: auto;
+}
+
+/* Ensure proper spacing on mobile */
+@media (max-width: 768px) {
+  .page-content {
+    gap: 16px;
+  }
+
+  .content-section {
+    margin-bottom: 16px;
+  }
+}
+
+/* Responsive grid for Sites page */
+.site-grid, [style*="gridTemplateColumns"] {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 16px !important;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .site-grid, [style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+/* Responsive site cards */
+.site-card, [style*="background: white"][style*="borderRadius"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+  padding: 16px !important;
+}
+
+@media (max-width: 480px) {
+  .site-card, [style*="background: white"][style*="borderRadius"] {
+    padding: 12px !important;
+  }
+}
+
+/* Responsive date inputs */
+.date-input-group, .date-inputs {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.date-input-group input,
+.date-input-group select {
+  flex: 1;
+  min-width: 120px;
+}
+
+@media (max-width: 768px) {
+  .date-input-group, .date-inputs {
+    flex-direction: column;
+  }
+
+  .date-input-group input,
+  .date-input-group select {
+    width: 100%;
+    min-width: 100%;
+  }
+}
+
+/* Responsive summary cards */
+.summary-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .summary-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* Responsive tabs */
+.tabs, .tab-list {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.tab-item, .tab-button {
+  min-width: 100px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Responsive action buttons */
+.action-buttons, .header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .action-buttons button,
+  .header-actions button {
+    flex: 1;
+    min-width: calc(50% - 4px);
+  }
+}
+
+/* Ensure all images are responsive */
+img, .employee-photo img, .logo-image {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Responsive pagination */
+.pagination {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Fix for long text that might overflow */
+h1, h2, h3, h4, h5, h6, p, span, div {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Responsive badges and status indicators */
+.status-badge, .badge {
+  display: inline-block;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ensure dropdowns don't overflow */
+select, .form-select {
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive legends */
+.legend, .legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 480px) {
+  .legend, .legend-items {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Fix for React Native WebView safe areas */
+@supports (padding: max(0px)) {
+  .page-container {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Ensure no element causes horizontal scroll */
+* {
+  max-width: 100vw;
+}
+
+/* Fix for fixed position elements on mobile */
+@media (max-width: 768px) {
+  .fixed, [style*="position: fixed"] {
+    max-width: 100vw;
+    left: 0;
+    right: 0;
+  }
+}
+
+/* ============================================
+   MOBILE CARD VIEWS FOR ALL PAGES
+   ============================================ */
+
+/* Hide tables on mobile, show cards */
+@media (max-width: 768px) {
+  .data-table {
+    display: none !important;
+  }
+
+  .mobile-cards-view {
+    display: block !important;
+  }
+}
+
+/* Desktop: Hide cards, show tables */
+@media (min-width: 769px) {
+  .mobile-cards-view {
+    display: none !important;
+  }
+
+  .data-table {
+    display: table !important;
+  }
+}
+
+/* Mobile Cards Container */
+.mobile-cards-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Generic Mobile Card */
+.mobile-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+}
+
+.mobile-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Card Header */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 4px 0;
+  word-wrap: break-word;
+}
+
+.card-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.card-action-btn {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  min-width: 36px;
+  min-height: 36px;
+  touch-action: manipulation;
+}
+
+.card-action-btn:active {
+  background: #f3f4f6;
+  transform: scale(0.95);
+}
+
+.card-action-btn.edit {
+  color: #8b5cf6;
+  border-color: #8b5cf6;
+}
+
+.card-action-btn.delete {
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.card-action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Card Body */
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.card-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.card-value {
+  font-size: 14px;
+  color: #1f2937;
+  text-align: right;
+  flex: 1;
+  word-wrap: break-word;
+}
+
+/* Card Status Badge */
+.card-status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+/* Employee Card Specific */
+.employee-card-photo {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+  margin-bottom: 12px;
+}
+
+.employee-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.employee-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Attendance Card Specific */
+.attendance-card-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.attendance-card-times {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.attendance-time-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attendance-time-label {
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.attendance-time-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.attendance-time-value.in {
+  color: #059669;
+}
+
+.attendance-time-value.out {
+  color: #dc2626;
+}
+
+/* Summary Report Card */
+.summary-card-mobile {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 12px;
+}
+
+.summary-card-date {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.summary-card-shifts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.summary-shift-item {
+  text-align: center;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.summary-shift-label {
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.summary-shift-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.summary-card-total {
+  text-align: center;
+  padding: 12px;
+  background: #8b5cf6;
+  color: white;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Empty State for Cards */
+.mobile-cards-view .empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Loading State for Cards */
+.mobile-cards-view .loading-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+  font-size: 14px;
 }
 

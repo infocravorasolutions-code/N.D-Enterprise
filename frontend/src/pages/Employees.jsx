@@ -317,6 +317,72 @@ const Employees = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="mobile-cards-view">
+            {loading ? (
+              <div className="loading-state">Loading...</div>
+            ) : error ? (
+              <div className="empty-state" style={{ color: '#dc2626' }}>{error}</div>
+            ) : filteredEmployees.length === 0 ? (
+              <div className="empty-state">No employees found</div>
+            ) : (
+              paginatedEmployees.map((employee) => (
+                <div key={employee._id} className="mobile-card">
+                  <div className="card-header">
+                    <div className="employee-card-header">
+                      <div className="employee-card-photo" style={{ background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {getImageUrl(employee.image) ? (
+                          <img src={getImageUrl(employee.image)} alt={employee.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
+                        ) : (
+                          <FaUser style={{ color: '#9ca3af', fontSize: '24px' }} />
+                        )}
+                      </div>
+                      <div className="employee-card-info">
+                        <h3 className="card-title">{employee.name || 'N/A'}</h3>
+                        <p className="card-subtitle">ID: {employee._id?.substring(0, 12)}...</p>
+                      </div>
+                    </div>
+                    <div className="card-actions">
+                      <button
+                        className="card-action-btn edit"
+                        onClick={() => handleEditEmployee(employee)}
+                      >
+                        <FaEdit />
+                      </button>
+                      <button
+                        className="card-action-btn delete"
+                        onClick={() => handleDelete(employee._id)}
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    <div className="card-row">
+                      <span className="card-label">Email</span>
+                      <span className="card-value">{employee.email || 'N/A'}</span>
+                    </div>
+                    <div className="card-row">
+                      <span className="card-label">Manager</span>
+                      <span className="card-value">{employee.managerId?.name || 'Unassigned'}</span>
+                    </div>
+                    <div className="card-row">
+                      <span className="card-label">Shift</span>
+                      <span className="card-value" style={{ textTransform: 'capitalize' }}>{employee.shift || 'N/A'}</span>
+                    </div>
+                    <div className="card-row">
+                      <span className="card-label">Status</span>
+                      <span className={`card-status ${employee.isWorking ? 'status-active' : 'status-on-leave'}`}>
+                        {employee.isWorking ? 'Active' : 'On Leave'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
           {filteredEmployees.length > 0 && (
             <Pagination
               currentPage={currentPage}

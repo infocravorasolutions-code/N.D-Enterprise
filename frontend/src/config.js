@@ -1,7 +1,7 @@
 // Environment Configuration
 // Set IS_PRODUCTION to true for production, false for local development
 
-const IS_PRODUCTION = false; // Change to false for local development
+const IS_PRODUCTION = true; // Change to false for local development
 
 // API Base URLs
 const PRODUCTION_API_URL = 'https://api.ndenterpries.com/api';

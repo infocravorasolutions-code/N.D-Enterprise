@@ -16,13 +16,15 @@
 .header-content {
   width: 100%;
   max-width: 100%;
-  padding: 0 16px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 100%;
-  gap: 16px;
+  gap: 8px;
   position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .header-content::after {
@@ -74,22 +76,25 @@
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
   margin-left: auto;
   justify-content: flex-end;
   order: 2;
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 .header-action-btn {
-  background: #f9fafb;
+  background: #ffffff;
   border: 1px solid #e5e7eb;
   color: #1f2937;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -99,6 +104,9 @@
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+  padding: 0;
 }
 
 .header-action-btn::before {
@@ -120,8 +128,8 @@
 }
 
 .header-action-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 12px;
+  height: 12px;
   position: relative;
   z-index: 1;
   transition: transform 0.2s;
@@ -134,9 +142,10 @@
 }
 
 .header-action-btn:hover {
-  background: #f3f4f6;
+  background: #f9fafb;
   border-color: #d1d5db;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
 
 .header-action-btn:active svg {
@@ -168,18 +177,21 @@
 
 /* Refresh Button Specific Styles */
 .header-refresh-btn {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1e40af;
+  background: #ffffff;
+  border-color: #3b82f6;
+  color: #3b82f6;
+  border-width: 1.5px;
 }
 
 .header-refresh-btn:hover {
-  background: #dbeafe;
-  border-color: #93c5fd;
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
 }
 
 .header-refresh-btn:active {
   background: #dbeafe;
+  transform: translateY(0) scale(0.95);
 }
 
 .header-refresh-btn.refreshing svg {
@@ -193,18 +205,21 @@
 
 /* Menu Button Specific Styles */
 .header-menu-btn {
-  background: #f9fafb;
-  border-color: #e5e7eb;
-  color: #1f2937;
+  background: #ffffff;
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+  border-width: 1.5px;
 }
 
 .header-menu-btn:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  background: #f5f3ff;
+  border-color: #7c3aed;
+  color: #7c3aed;
 }
 
 .header-menu-btn:active {
-  background: #e5e7eb;
+  background: #ede9fe;
+  transform: translateY(0) scale(0.95);
 }
 
 @keyframes spin {
@@ -231,9 +246,10 @@
   }
 
   .header-content {
-    padding: 0 16px;
-    gap: 12px;
+    padding: 0 12px;
+    /* gap: 6px; */
     justify-content: space-between;
+    overflow: hidden;
   }
 
   .header-content::after {
@@ -243,7 +259,9 @@
   .header-logo {
     gap: 10px;
     flex: 0 0 auto;
-    max-width: calc(100% - 100px);
+    max-width: calc(100% - 70px);
+    min-width: 0;
+    overflow: hidden;
   }
 
   .header-logo-image {
@@ -258,28 +276,32 @@
   }
 
   .header-actions {
-    gap: 6px;
+    gap: 4px;
     margin-left: auto;
     flex-shrink: 0;
     order: 2;
+    min-width: 0;
   }
 
   .header-action-btn {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
-    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    min-height: 28px;
+    border-radius: 6px;
+    box-sizing: border-box;
+    padding: 0;
   }
 
   .header-action-btn svg {
-    width: 18px;
-    height: 18px;
+    width: 12px;
+    height: 12px;
   }
 
   .header-menu-btn {
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
   }
 }
 
@@ -294,7 +316,9 @@
   .header-logo {
     gap: 8px;
     flex: 0 0 auto;
-    max-width: calc(100% - 90px);
+    max-width: calc(100% - 70px);
+    min-width: 0;
+    overflow: hidden;
   }
 
   .header-logo-image {
@@ -303,23 +327,27 @@
   }
 
   .header-actions {
-    gap: 6px;
+    gap: 4px;
     margin-left: auto;
     flex-shrink: 0;
     order: 2;
+    min-width: 0;
   }
 
   .header-action-btn {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
-    min-height: 38px;
-    border-radius: 7px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    min-height: 28px;
+    border-radius: 6px;
+    box-sizing: border-box;
+    padding: 0;
   }
 
   .header-action-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
   }
 }
 

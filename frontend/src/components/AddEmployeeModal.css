@@ -180,17 +180,50 @@
 }
 
 @media (max-width: 768px) {
+  .employee-form {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .form-input {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
   .photo-actions {
     flex-direction: column;
+    width: 100%;
+  }
+
+  .photo-upload-area {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .modal-actions {
     flex-direction: column-reverse;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .modal-actions .btn-primary,
   .modal-actions .btn-secondary {
     width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .photo-upload-area {
+    min-height: 150px;
+  }
+
+  .photo-preview {
+    height: 150px;
   }
 }
 

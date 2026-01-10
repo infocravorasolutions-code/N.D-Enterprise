@@ -92,6 +92,42 @@ export const updateEmployee = async (req, res) => {
       updateData.image = req.file.filename; // or full URL if needed
     }
 
+    // If siteId is being updated, also update managerId to match a manager from that site
+    if (updateData.siteId !== undefined) {
+      const siteId = updateData.siteId;
+      
+      if (siteId === null || siteId === '') {
+        // If siteId is being set to null, we don't need to update managerId
+        // (employee becomes global, managerId can stay as is)
+      } else {
+        // Find managers assigned to this site
+        const siteObjectId = new mongoose.Types.ObjectId(siteId);
+        const siteManagers = await Manager.find({ siteId: siteObjectId }).limit(1);
+        
+        if (siteManagers.length > 0) {
+          // If managerId is not explicitly provided, use the first manager from the site
+          if (!updateData.managerId) {
+            updateData.managerId = siteManagers[0]._id;
+            console.log(`[updateEmployee] Auto-updated managerId to ${updateData.managerId} for site ${siteId}`);
+          } else {
+            // Verify the provided managerId belongs to this site
+            const managerIdObject = new mongoose.Types.ObjectId(updateData.managerId);
+            const manager = await Manager.findOne({ _id: managerIdObject, siteId: siteObjectId });
+            if (!manager) {
+              return res.status(400).json({ 
+                message: "The specified manager is not assigned to the selected site" 
+              });
+            }
+          }
+        } else if (!updateData.managerId) {
+          // No managers for this site and no managerId provided
+          return res.status(400).json({ 
+            message: "No managers are assigned to this site. Please assign a manager to the site first, or specify a managerId in the update." 
+          });
+        }
+      }
+    }
+
     const updatedEmployee = await Employee.findByIdAndUpdate(
       req.params.id,
       updateData,

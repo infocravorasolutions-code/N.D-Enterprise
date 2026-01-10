@@ -262,6 +262,29 @@ const importEmployees = async (filePath, options = {}) => {
         }
       }
 
+      // If siteId is set, ensure manager is from that site
+      if (siteId) {
+        const siteObjectId = siteId instanceof mongoose.Types.ObjectId ? siteId : new mongoose.Types.ObjectId(siteId);
+        
+        // Find managers assigned to this site
+        const siteManagers = await Manager.find({ siteId: siteObjectId }).limit(1);
+        
+        if (siteManagers.length > 0) {
+          // Use the first manager from the site (override any previously set manager)
+          manager = siteManagers[0];
+          console.log(`✅ Row ${rowNum}: Using site manager: ${manager.name} (${manager.email}) for site`);
+        } else {
+          // No manager assigned to site - this is an error
+          results.failed.push({ 
+            row: rowNum, 
+            reason: `No managers are assigned to the site. Please assign a manager to the site first.`, 
+            data: row 
+          });
+          console.log(`❌ Row ${rowNum}: No managers found for site. Cannot import employee to site without a manager.`);
+          continue;
+        }
+      }
+
       // Check for duplicates
       if (skipDuplicates) {
         let existingEmployee = null;

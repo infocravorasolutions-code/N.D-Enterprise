@@ -190,6 +190,59 @@ const Supervisor = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="mobile-cards-view">
+            {loading ? (
+              <div className="loading-state">Loading...</div>
+            ) : error ? (
+              <div className="empty-state" style={{ color: '#dc2626' }}>{error}</div>
+            ) : supervisors.length === 0 ? (
+              <div className="empty-state">No supervisors found</div>
+            ) : (
+              paginatedSupervisors.map((supervisor) => (
+                <div key={supervisor._id} className="mobile-card">
+                  <div className="card-header">
+                    <div>
+                      <h3 className="card-title">{supervisor.name || 'N/A'}</h3>
+                      <p className="card-subtitle">{supervisor.email || 'N/A'}</p>
+                    </div>
+                    <div className="card-actions">
+                      <button
+                        className="card-action-btn edit"
+                        onClick={() => handleEditSupervisor(supervisor)}
+                      >
+                        <FaEdit />
+                      </button>
+                      <button
+                        className="card-action-btn delete"
+                        onClick={() => handleDelete(supervisor._id)}
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    <div className="card-row">
+                      <span className="card-label">Team Size</span>
+                      <span className="card-value">0</span>
+                    </div>
+                    <div className="card-row">
+                      <span className="card-label">Location</span>
+                      <span className="card-value">{supervisor.address || 'N/A'}</span>
+                    </div>
+                    <div className="card-row">
+                      <span className="card-label">Status</span>
+                      <span className={`card-status ${supervisor.isActive ? 'status-active' : 'status-inactive'}`}>
+                        {supervisor.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
           {supervisors.length > 0 && (
             <Pagination
               currentPage={currentPage}

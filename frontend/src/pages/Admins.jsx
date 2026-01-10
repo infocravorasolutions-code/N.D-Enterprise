@@ -283,6 +283,65 @@ const Admins = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="mobile-cards-view">
+            {loading ? (
+              <div className="loading-state">Loading...</div>
+            ) : error ? (
+              <div className="empty-state" style={{ color: '#dc2626' }}>{error}</div>
+            ) : admins.length === 0 ? (
+              <div className="empty-state">No admins found</div>
+            ) : (
+              paginatedAdmins.map((admin) => (
+                <div key={admin._id} className="mobile-card">
+                  <div className="card-header">
+                    <div>
+                      <h3 className="card-title">{admin.name || 'N/A'}</h3>
+                      <p className="card-subtitle">{admin.email || 'N/A'}</p>
+                    </div>
+                    <div className="card-actions">
+                      <button
+                        className="card-action-btn edit"
+                        onClick={() => handleEditAdmin(admin)}
+                      >
+                        <FaEdit />
+                      </button>
+                      <button
+                        className="card-action-btn delete"
+                        onClick={() => handleDelete(admin._id)}
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    <div className="card-row">
+                      <span className="card-label">ID</span>
+                      <span className="card-value" style={{ fontFamily: 'monospace', fontSize: '12px' }}>{admin._id?.substring(0, 12)}...</span>
+                    </div>
+                    <div className="card-row">
+                      <span className="card-label">Role</span>
+                      <span className={`card-status ${admin.role === 'superadmin' ? 'status-active' : 'status-on-leave'}`}>
+                        {admin.role === 'superadmin' ? 'Super Admin' : 'Read Only'}
+                      </span>
+                    </div>
+                    <div className="card-row">
+                      <span className="card-label">Assigned Site</span>
+                      <span className="card-value">
+                        {admin.role === 'readonly' && admin.siteId ? (admin.siteId?.name || 'Assigned Site') : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="card-row">
+                      <span className="card-label">Status</span>
+                      <span className="card-status status-active">Active</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
           {admins.length > 0 && (
             <Pagination
               currentPage={currentPage}

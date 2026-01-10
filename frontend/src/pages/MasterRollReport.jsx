@@ -94,6 +94,18 @@ const MasterRollReport = () => {
     // Group attendance by employee
     const employeeAttendanceMap = {}
     
+    // First, initialize all employees from the employeesList (even without attendance)
+    employeesList.forEach(emp => {
+      const empIdStr = String(emp._id || emp.id)
+      employeeAttendanceMap[empIdStr] = {
+        employeeId: empIdStr,
+        name: emp.name || 'Unknown',
+        designation: emp.designation || 'N/A',
+        shift: emp.shift || 'N/A',
+        attendance: {}
+      }
+    })
+    
     // Create a map of employees by ID for faster lookup
     const employeeMap = {}
     employeesList.forEach(emp => {
@@ -101,6 +113,7 @@ const MasterRollReport = () => {
       employeeMap[empIdStr] = emp
     })
     
+    // Now process attendance records to fill in attendance data
     attendanceRecords.forEach(record => {
       // Handle both populated and unpopulated employeeId
       let empId = null
@@ -123,6 +136,7 @@ const MasterRollReport = () => {
         return // Skip records without employeeId
       }
       
+      // Initialize employee in map if not already present (for employees with attendance but not in employeesList)
       if (!employeeAttendanceMap[empId]) {
         employeeAttendanceMap[empId] = {
           employeeId: empId,
@@ -145,8 +159,22 @@ const MasterRollReport = () => {
       }
     })
     
-    // Convert to array format
-    return Object.values(employeeAttendanceMap)
+    // Convert to array and fill missing days
+    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate()
+    return Object.values(employeeAttendanceMap).map(emp => {
+      const filled = {}
+      for (let day = 1; day <= daysInMonth; day++) {
+        if (emp.attendance[day]) {
+          filled[day] = emp.attendance[day]
+        } else {
+          filled[day] = { status: 'A', stepIn: '', stepOut: '' }
+        }
+      }
+      return {
+        ...emp,
+        attendance: filled
+      }
+    })
   }
 
   const formatTime = (dateString) => {

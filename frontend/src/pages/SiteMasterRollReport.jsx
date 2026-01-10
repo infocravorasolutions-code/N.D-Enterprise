@@ -70,14 +70,20 @@ const SiteMasterRollReport = () => {
       }))
       
       console.log('Fetched employees for site muster roll:', employeesList.length)
+      return employeesList // Return the employees list for immediate use
     } catch (error) {
       console.error('Error fetching employees:', error)
+      return [] // Return empty array on error
     }
   }
 
   const fetchMusterRollData = async () => {
     try {
       setLoading(true)
+      
+      // First, refresh the employees list to get any newly assigned employees
+      const currentEmployees = await fetchEmployees()
+      
       const startDate = fromDate || `${year}-${month}-01`
       const endDate = toDate || `${year}-${month}-${new Date(parseInt(year), parseInt(month), 0).getDate()}`
       
@@ -92,9 +98,10 @@ const SiteMasterRollReport = () => {
       
       console.log('Site attendance records fetched:', attendanceRecords.length)
       console.log('Sample attendance record:', attendanceRecords[0])
-      console.log('Employees list:', employees.length)
+      console.log('Employees list:', currentEmployees.length)
       
-      const processedData = processAttendanceData(attendanceRecords, employees)
+      // Use the freshly fetched employees list (not the state, which might be stale)
+      const processedData = processAttendanceData(attendanceRecords, currentEmployees)
       
       console.log('Processed site muster roll data:', processedData.length)
       console.log('Sample processed row:', processedData[0])
@@ -118,6 +125,18 @@ const SiteMasterRollReport = () => {
     // Group attendance by employee
     const employeeAttendanceMap = {}
     
+    // First, initialize all employees from the employeesList (even without attendance)
+    employeesList.forEach(emp => {
+      const empIdStr = String(emp._id || emp.id)
+      employeeAttendanceMap[empIdStr] = {
+        employeeId: empIdStr,
+        name: emp.name || 'Unknown',
+        designation: emp.designation || 'N/A',
+        shift: emp.shift || 'N/A',
+        attendance: {}
+      }
+    })
+    
     // Create a map of employees by ID for faster lookup
     const employeeMap = {}
     employeesList.forEach(emp => {
@@ -125,6 +144,7 @@ const SiteMasterRollReport = () => {
       employeeMap[empIdStr] = emp
     })
     
+    // Now process attendance records to fill in attendance data
     attendanceRecords.forEach(record => {
       // Handle both populated and unpopulated employeeId
       let empId = null
@@ -147,6 +167,7 @@ const SiteMasterRollReport = () => {
         return // Skip records without employeeId
       }
       
+      // Initialize employee in map if not already present (for employees with attendance but not in employeesList)
       if (!employeeAttendanceMap[empId]) {
         employeeAttendanceMap[empId] = {
           employeeId: empId,

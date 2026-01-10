@@ -4,6 +4,12 @@
   "installCommand": "npm install",
   "framework": "vite",
   "rootDirectory": "frontend",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD ."
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD .",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
 

@@ -11,6 +11,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Safe area support for notches */
+  padding-top: env(safe-area-inset-top, 0);
+  height: calc(64px + env(safe-area-inset-top, 0));
 }
 
 .header-content {
@@ -60,10 +63,12 @@
   width: auto;
   height: 40px;
   max-width: 80px;
+  max-height: 40px;
   aspect-ratio: 1396 / 817;
   object-fit: contain;
   border-radius: 6px;
   flex-shrink: 0;
+  display: block;
 }
 
 .logo-text {
@@ -257,16 +262,20 @@
   }
 
   .header-logo {
-    gap: 10px;
+    gap: 8px;
     flex: 0 0 auto;
     max-width: calc(100% - 70px);
     min-width: 0;
     overflow: hidden;
+    display: flex;
+    align-items: center;
   }
 
   .header-logo-image {
-    height: 36px;
-    max-width: 70px;
+    height: 32px !important;
+    max-width: 60px !important;
+    max-height: 32px !important;
+    width: auto !important;
   }
 
   .logo-icon {
@@ -276,11 +285,13 @@
   }
 
   .header-actions {
-    gap: 4px;
+    gap: 6px;
     margin-left: auto;
     flex-shrink: 0;
     order: 2;
     min-width: 0;
+    display: flex;
+    align-items: center;
   }
 
   .header-action-btn {
@@ -292,6 +303,9 @@
     border-radius: 6px;
     box-sizing: border-box;
     padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .header-action-btn svg {
@@ -322,8 +336,10 @@
   }
 
   .header-logo-image {
-    height: 32px;
-    max-width: 60px;
+    height: 28px !important;
+    max-width: 50px !important;
+    max-height: 28px !important;
+    width: auto !important;
   }
 
   .header-actions {

@@ -967,7 +967,16 @@ const AttendanceReports = () => {
                 {error}
               </div>
             ) : attendanceRecords.length === 0 ? (
-              <div className="empty-state">No attendance records found</div>
+              <div className="empty-state" style={{ padding: '40px 20px', textAlign: 'center', color: '#6b7280' }}>
+                <p style={{ fontSize: '16px', margin: 0 }}>No attendance records found</p>
+                <p style={{ fontSize: '14px', margin: '8px 0 0 0', color: '#9ca3af' }}>
+                  {fromDate && toDate ? 'Try adjusting your date range or filters' : 'Please select a date range to view attendance records'}
+                </p>
+              </div>
+            ) : paginatedRecords.length === 0 ? (
+              <div className="empty-state" style={{ padding: '40px 20px', textAlign: 'center', color: '#6b7280' }}>
+                <p style={{ fontSize: '16px', margin: 0 }}>No records on this page</p>
+              </div>
             ) : (
               paginatedRecords.map((record) => {
                 const status = getStatus(record)

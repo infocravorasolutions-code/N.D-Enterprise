@@ -262,6 +262,25 @@ const SiteMasterRollReport = () => {
   const rowTotals = calculateRowTotals()
   const grandTotal = Object.values(rowTotals).reduce((sum, total) => sum + total, 0)
 
+  // Calculate attendance summary for each employee (for mobile cards)
+  const calculateEmployeeSummary = (row) => {
+    const attendance = row.attendance || {}
+    let present = 0
+    let absent = 0
+    let weekOff = 0
+    const daysInMonth = getDaysInMonth()
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      if (attendance[day]) {
+        if (attendance[day].status === 'P') present++
+        else if (attendance[day].status === 'A') absent++
+        else if (attendance[day].status === 'W') weekOff++
+      }
+    }
+    
+    return { present, absent, weekOff }
+  }
+
   const exportToPDF = async () => {
     try {
       const doc = new jsPDF('landscape')
@@ -664,7 +683,68 @@ const SiteMasterRollReport = () => {
 
         {/* Muster Roll Table */}
         <div className="content-section">
-          <div className="table-container">
+          {/* Mobile Card View */}
+          <div className="muster-mobile-cards mobile-only">
+            {loading ? (
+              <div className="empty-state">Loading...</div>
+            ) : filteredData.length === 0 ? (
+              <div className="empty-state">No data available</div>
+            ) : (
+              filteredData.map((row, index) => {
+                const summary = calculateEmployeeSummary(row)
+                return (
+                  <div key={row.employeeId || index} className="muster-card-mobile">
+                    <div className="muster-card-header">
+                      <div className="muster-card-info">
+                        <h3 className="muster-card-name">{row.name}</h3>
+                        <p className="muster-card-shift">{row.shift || 'N/A'}</p>
+                      </div>
+                      <div className="muster-card-summary">
+                        <span className="summary-item summary-present">{summary.present}P</span>
+                        <span className="summary-item summary-absent">{summary.absent}A</span>
+                        <span className="summary-item summary-weekoff">{summary.weekOff}W</span>
+                      </div>
+                    </div>
+                    <div className="muster-card-attendance">
+                      <div className="attendance-days-header">
+                        {Array.from({ length: getDaysInMonth() }, (_, i) => i + 1).map((day) => (
+                          <div key={day} className="attendance-day-header">{day}</div>
+                        ))}
+                      </div>
+                      <div className="attendance-days-content">
+                        {Array.from({ length: getDaysInMonth() }, (_, i) => i + 1).map((day) => (
+                          <div key={day} className="attendance-day-cell">
+                            {row.attendance && row.attendance[day] ? (
+                              <div className="attendance-day-content">
+                                <div className={`attendance-day-status badge-${row.attendance[day].status.toLowerCase()}`}>
+                                  {row.attendance[day].status}
+                                </div>
+                                {row.attendance[day].stepIn && (
+                                  <div className="attendance-day-time attendance-time-in">
+                                    {row.attendance[day].stepIn}
+                                  </div>
+                                )}
+                                {row.attendance[day].stepOut && (
+                                  <div className="attendance-day-time attendance-time-out">
+                                    {row.attendance[day].stepOut}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="attendance-day-empty">-</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="table-container desktop-only">
             <table className="data-table muster-table">
               <thead>
                 <tr>

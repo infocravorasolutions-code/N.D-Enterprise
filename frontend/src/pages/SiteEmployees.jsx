@@ -403,7 +403,74 @@ const SiteEmployees = () => {
               <p>No employees found for this site.</p>
             </div>
           ) : (
-            <div className="table-container">
+            <>
+              {/* Mobile Card View */}
+              <div className="mobile-cards-view mobile-only">
+                {filteredEmployees.map((employee) => (
+                  <div key={employee._id} className="mobile-card">
+                    <div className="card-header">
+                      <div className="employee-card-header">
+                        <div className="employee-card-photo" style={{ background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {getImageUrl(employee.image) ? (
+                            <img src={getImageUrl(employee.image)} alt={employee.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <FaUser style={{ width: '28px', height: '28px', color: '#9ca3af' }} />
+                          )}
+                        </div>
+                        <div className="employee-card-info">
+                          <h3 className="card-title">{employee.name || 'N/A'}</h3>
+                          <p className="card-subtitle">{employee.email || 'N/A'}</p>
+                        </div>
+                      </div>
+                      {!isReadonlyAdminWithSite && (
+                        <div className="card-actions">
+                          <button
+                            className="card-action-btn edit"
+                            onClick={() => handleEditEmployee(employee)}
+                            title="Edit"
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            className="card-action-btn delete"
+                            onClick={() => handleDelete(employee._id)}
+                            title="Delete"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="card-body">
+                      <div className="card-row">
+                        <span className="card-label">Mobile</span>
+                        <span className="card-value">{employee.mobile || 'N/A'}</span>
+                      </div>
+                      <div className="card-row">
+                        <span className="card-label">Address</span>
+                        <span className="card-value">{employee.address || 'N/A'}</span>
+                      </div>
+                      <div className="card-row">
+                        <span className="card-label">Shift</span>
+                        <span className="card-value" style={{ textTransform: 'capitalize' }}>{employee.shift || 'N/A'}</span>
+                      </div>
+                      <div className="card-row">
+                        <span className="card-label">Manager</span>
+                        <span className="card-value">{employee.managerId?.name || 'Unassigned'}</span>
+                      </div>
+                      <div className="card-row">
+                        <span className="card-label">Status</span>
+                        <span className={`card-status ${employee.isWorking ? 'status-active' : 'status-inactive'}`}>
+                          {employee.isWorking ? 'Working' : 'Not Working'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="table-container desktop-only">
               {selectedEmployees.size > 0 && !isReadonlyAdminWithSite && (
                 <div style={{ 
                   padding: '12px', 
@@ -522,7 +589,8 @@ const SiteEmployees = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </div>
       </div>

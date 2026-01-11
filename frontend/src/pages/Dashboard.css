@@ -262,13 +262,18 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .page-container {
-    padding: 16px;
+    padding: 12px;
+    padding-top: max(12px, env(safe-area-inset-top, 12px));
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+    padding-left: max(12px, env(safe-area-inset-left, 12px));
+    padding-right: max(12px, env(safe-area-inset-right, 12px));
   }
   .greeting-card {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
-    padding: 20px;
+    padding: 16px;
+    margin-bottom: 16px;
   }
 
   .greeting-time {
@@ -279,7 +284,13 @@
   }
 
   .current-time {
-    font-size: 24px;
+    font-size: 22px;
+    line-height: 1.2;
+  }
+  
+  .current-time-label {
+    font-size: 11px;
+    margin-top: 2px;
   }
 
   .greeting-avatar {
@@ -294,7 +305,47 @@
 
   .dashboard-grid {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  
+  /* Fix stat cards on mobile */
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .stat-card {
+    padding: 14px;
+    gap: 12px;
+    min-height: auto;
+  }
+  
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+  }
+  
+  .stat-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .stat-info {
+    min-width: 0;
+    flex: 1;
+  }
+  
+  .stat-info h3 {
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+  
+  .stat-value {
+    font-size: 20px;
+    line-height: 1.2;
   }
 
   .chart-container {

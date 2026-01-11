@@ -6,16 +6,30 @@
   box-sizing: border-box;
   overflow-x: hidden;
   position: relative;
+  /* Safe area insets for notches and home indicators */
+  padding-top: max(30px, env(safe-area-inset-top));
+  padding-bottom: max(30px, env(safe-area-inset-bottom));
+  padding-left: max(30px, env(safe-area-inset-left));
+  padding-right: max(30px, env(safe-area-inset-right));
 }
 
-.page-header {
-  margin-bottom: 30px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-  flex-wrap: wrap;
-}
+  .page-header {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  
+  .page-header h1 {
+    font-size: 24px;
+    margin-bottom: 4px;
+  }
+  
+  .page-subtitle {
+    font-size: 14px;
+  }
 
 .page-header-content {
   display: flex;
@@ -36,11 +50,11 @@
   font-size: 16px;
 }
 
-.page-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
+  .page-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
 
 .stats-grid {
   display: grid;
@@ -818,26 +832,43 @@
   }
 
   .stat-card {
-    padding: 20px;
-    gap: 14px;
+    padding: 14px;
+    gap: 12px;
+    min-height: auto;
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .stat-icon {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
   }
 
   .stat-icon svg {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .stat-info {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
   }
 
   .stat-info h3 {
-    font-size: 13px;
+    font-size: 12px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .stat-value {
-    font-size: 24px;
+    font-size: 20px;
+    line-height: 1.2;
+    word-break: break-word;
   }
 
   .content-section {
@@ -1184,7 +1215,7 @@
 
 /* Muster Roll Mobile Cards */
 .muster-mobile-cards {
-  display: flex;
+  display: none; /* Hidden by default, shown on mobile via media query */
   flex-direction: column;
   gap: 16px;
 }
@@ -1389,9 +1420,26 @@
 
 /* Attendance Reports Mobile Cards */
 .attendance-mobile-cards {
-  display: flex;
+  display: none; /* Hidden by default, shown on mobile via media query */
   flex-direction: column;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Show mobile cards on mobile devices */
+@media screen and (max-width: 768px) {
+  .attendance-mobile-cards,
+  .attendance-mobile-cards.mobile-only {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
 }
 
 .attendance-card-mobile {
@@ -1546,13 +1594,21 @@
   transform: scale(0.98);
 }
 
-@media (max-width: 768px) {
+@media screen and (max-width: 768px) {
+  .attendance-mobile-cards,
   .attendance-mobile-cards.mobile-only {
     display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .table-container.desktop-only {
     display: none !important;
+    visibility: hidden !important;
   }
 }
 
@@ -1657,8 +1713,48 @@
     display: block !important;
   }
 
-  .muster-mobile-cards.mobile-only {
+  .muster-mobile-cards,
+  .muster-mobile-cards.mobile-only,
+  .attendance-mobile-cards,
+  .attendance-mobile-cards.mobile-only,
+  .mobile-cards-view,
+  .mobile-cards-view.mobile-only {
     display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  .table-container.desktop-only {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Site Managers Grid - make single column on mobile */
+  .managers-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+}
+
+/* Desktop: Ensure mobile cards are hidden and tables are shown */
+@media (min-width: 769px) {
+  .muster-mobile-cards,
+  .muster-mobile-cards.mobile-only,
+  .attendance-mobile-cards,
+  .attendance-mobile-cards.mobile-only,
+  .mobile-cards-view,
+  .mobile-cards-view.mobile-only {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  .table-container.desktop-only {
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  .data-table {
+    display: table !important;
   }
 }
 

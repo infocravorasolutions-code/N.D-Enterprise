@@ -388,7 +388,41 @@ const SiteSummaryReport = () => {
             <p className="table-subtitle">
               Employee count from {fromDate.split('-').reverse().join('-')} to {toDate.split('-').reverse().join('-')} ({calculateDays()} days)
             </p>
-            <div className="table-container">
+            
+            {/* Mobile Card View */}
+            <div className="mobile-cards-view mobile-only">
+              {loading ? (
+                <div className="loading-state">Loading...</div>
+              ) : attendanceData.length === 0 ? (
+                <div className="empty-state">No attendance data available</div>
+              ) : (
+                paginatedData.map((row, index) => (
+                  <div key={index} className="summary-card-mobile">
+                    <div className="summary-card-date">{row.date}</div>
+                    <div className="summary-card-shifts">
+                      <div className="summary-shift-item">
+                        <div className="summary-shift-label">Morning</div>
+                        <div className="summary-shift-value">{row.morning}P</div>
+                      </div>
+                      <div className="summary-shift-item">
+                        <div className="summary-shift-label">Evening</div>
+                        <div className="summary-shift-value">{row.evening}P</div>
+                      </div>
+                      <div className="summary-shift-item">
+                        <div className="summary-shift-label">Night</div>
+                        <div className="summary-shift-value">{row.night}P</div>
+                      </div>
+                    </div>
+                    <div className="summary-card-total">
+                      Total: {row.total} Present
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="table-container desktop-only">
               <table className="data-table">
                 <thead>
                   <tr>

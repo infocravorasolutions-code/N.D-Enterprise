@@ -937,7 +937,208 @@ const SiteAttendance = () => {
               <p>No attendance records found for this site.</p>
             </div>
           ) : (
-            <div className="table-container">
+            <>
+              {/* Mobile Card View */}
+              <div className="attendance-mobile-cards mobile-only">
+                {attendance.length > 0 && !isReadonlyAdminWithSite && (
+                  <div style={{ 
+                    marginBottom: '12px', 
+                    padding: '12px', 
+                    background: '#f9fafb', 
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={(input) => {
+                        if (input) input.indeterminate = isSomeSelected && !isAllSelected
+                      }}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                    />
+                    <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151', cursor: 'pointer' }}>
+                      Select All ({attendance.length})
+                    </label>
+                  </div>
+                )}
+                {selectedRecords.size > 0 && !isReadonlyAdminWithSite && (
+                  <div style={{ 
+                    marginBottom: '16px', 
+                    padding: '12px', 
+                    background: '#eff6ff', 
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '8px'
+                  }}>
+                    <span style={{ fontWeight: '500', color: '#1e40af' }}>
+                      {selectedRecords.size} record(s) selected
+                    </span>
+                    <button
+                      className="btn-secondary"
+                      onClick={handleBulkDelete}
+                      disabled={isDeleting}
+                      style={{ 
+                        background: '#dc2626', 
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 12px',
+                        fontSize: '13px'
+                      }}
+                    >
+                      <FaTrash style={{ marginRight: '6px' }} />
+                      {isDeleting ? 'Deleting...' : `Delete (${selectedRecords.size})`}
+                    </button>
+                  </div>
+                )}
+                {attendance.map((record) => {
+                  const status = getStatus(record)
+                  const statusClass = status === 'Present' ? 'status-active' 
+                    : status === 'Absent' ? 'status-inactive' 
+                    : status === 'Late' ? 'status-on-leave' 
+                    : 'status-active'
+                  return (
+                    <div 
+                      key={record._id} 
+                      className={`attendance-card-mobile ${!isReadonlyAdminWithSite && selectedRecords.has(record._id) ? 'selected' : ''}`}
+                    >
+                      <div className="attendance-card-header">
+                        <div className="attendance-card-employee">
+                          {getImageUrl(record.employeeId?.image) && (
+                            <img 
+                              src={getImageUrl(record.employeeId?.image)} 
+                              alt={record.employeeId?.name}
+                              className="attendance-card-photo"
+                            />
+                          )}
+                          <div className="attendance-card-info">
+                            <h3 className="attendance-card-name">
+                              {record.employeeId?.name || 'Unknown'}
+                            </h3>
+                            <p className="attendance-card-manager">
+                              Manager: {record.managerId?.name || 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="attendance-card-status">
+                          <span className={`status-badge ${statusClass}`}>
+                            {status}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="attendance-card-body">
+                        <div className="attendance-card-row">
+                          <div className="attendance-card-label">Shift</div>
+                          <div className="attendance-card-value">
+                            <span className={`status-badge ${record.shift === 'morning' ? 'status-active' : record.shift === 'evening' ? 'status-on-leave' : 'status-inactive'}`}>
+                              {record.shift?.charAt(0).toUpperCase() + record.shift?.slice(1) || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="attendance-card-row">
+                          <div className="attendance-card-label">
+                            <FaClock style={{ marginRight: '4px' }} />
+                            Step In
+                          </div>
+                          <div className="attendance-card-value">
+                            {record.stepIn ? (
+                              <div>
+                                <div style={{ fontWeight: '500' }}>{formatDate(record.stepIn)}</div>
+                                {record.stepInAddress && (
+                                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                                    <FaMapMarkerAlt style={{ marginRight: '4px' }} />
+                                    {record.stepInAddress.length > 40 ? record.stepInAddress.substring(0, 40) + '...' : record.stepInAddress}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Not stepped in</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="attendance-card-row">
+                          <div className="attendance-card-label">
+                            <FaClock style={{ marginRight: '4px' }} />
+                            Step Out
+                          </div>
+                          <div className="attendance-card-value">
+                            {record.stepOut ? (
+                              <div>
+                                <div style={{ fontWeight: '500' }}>{formatDate(record.stepOut)}</div>
+                                {record.stepOutAddress && (
+                                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                                    <FaMapMarkerAlt style={{ marginRight: '4px' }} />
+                                    {record.stepOutAddress.length > 40 ? record.stepOutAddress.substring(0, 40) + '...' : record.stepOutAddress}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Not stepped out</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="attendance-card-row">
+                          <div className="attendance-card-label">Duration</div>
+                          <div className="attendance-card-value" style={{ fontWeight: '500' }}>
+                            {calculateDuration(record.stepIn, record.stepOut)}
+                          </div>
+                        </div>
+
+                        {record.stepInAddress && (
+                          <div className="attendance-card-row">
+                            <div className="attendance-card-label">
+                              <FaMapMarkerAlt style={{ marginRight: '4px' }} />
+                              Location
+                            </div>
+                            <div className="attendance-card-value" style={{ fontSize: '13px', color: '#6b7280' }}>
+                              {record.stepInAddress.length > 50 ? record.stepInAddress.substring(0, 50) + '...' : record.stepInAddress}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {!isReadonlyAdminWithSite && (
+                        <div className="attendance-card-actions">
+                          <input
+                            type="checkbox"
+                            checked={selectedRecords.has(record._id)}
+                            onChange={() => handleSelectRecord(record._id)}
+                            style={{ cursor: 'pointer', marginRight: '12px' }}
+                          />
+                          <button 
+                            className="attendance-card-btn attendance-card-btn-edit" 
+                            onClick={() => handleEdit(record)}
+                            title="Edit"
+                          >
+                            <FaEdit />
+                            <span>Edit</span>
+                          </button>
+                          <button 
+                            className="attendance-card-btn attendance-card-btn-delete" 
+                            onClick={() => handleDelete(record)}
+                            title="Delete"
+                          >
+                            <FaTrash />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="table-container desktop-only">
               {selectedRecords.size > 0 && (
                 <div style={{ 
                   marginBottom: '16px', 
@@ -1095,7 +1296,8 @@ const SiteAttendance = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </div>
       </div>

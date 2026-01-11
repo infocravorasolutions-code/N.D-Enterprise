@@ -180,7 +180,9 @@ const SiteManagers = () => {
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
               gap: '20px'
-            }}>
+            }}
+            className="managers-grid"
+            >
               {managers.map((manager) => (
                 <div
                   key={manager._id}

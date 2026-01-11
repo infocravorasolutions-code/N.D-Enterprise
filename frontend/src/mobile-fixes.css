@@ -1,0 +1,176 @@
+/**
+ * Production Mobile Fixes
+ * This file ensures mobile responsiveness works correctly in production builds
+ * Add this import to main.jsx if needed
+ */
+
+/* Critical mobile fixes that must apply in production */
+@media screen and (max-width: 768px) {
+  /* Force viewport constraints */
+  html, body {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    position: relative !important;
+  }
+  
+  /* Root container */
+  #root {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* App containers */
+  .app-container,
+  .main-content,
+  .page-container {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Page containers - critical padding fix */
+  .page-container {
+    padding: 12px !important;
+    padding-top: max(12px, env(safe-area-inset-top, 12px)) !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px)) !important;
+    padding-left: max(12px, env(safe-area-inset-left, 12px)) !important;
+    padding-right: max(12px, env(safe-area-inset-right, 12px)) !important;
+  }
+  
+  /* Stat cards - ensure they fit */
+  .stat-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 14px !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Stats grid */
+  .stats-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Prevent any element from overflowing */
+  * {
+    max-width: 100vw !important;
+  }
+  
+  /* Images */
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  
+  /* Tables - must scroll */
+  .table-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* Cards */
+  .card,
+  .mobile-card,
+  .stat-card,
+  .content-section {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Forms */
+  form,
+  .form-group,
+  input,
+  select,
+  textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Buttons */
+  button,
+  .btn-primary,
+  .btn-secondary {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Header logo fix */
+  .header-logo-image {
+    height: 32px !important;
+    max-width: 60px !important;
+    max-height: 32px !important;
+    width: auto !important;
+    object-fit: contain !important;
+  }
+  
+  /* Ensure header buttons are visible */
+  .header-actions {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  .header-action-btn {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Ensure mobile card views are visible */
+  .mobile-only,
+  .attendance-mobile-cards,
+  .attendance-mobile-cards.mobile-only,
+  .mobile-cards-view,
+  .mobile-cards-view.mobile-only,
+  .muster-mobile-cards,
+  .muster-mobile-cards.mobile-only {
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Hide desktop tables on mobile */
+  .table-container.desktop-only,
+  .desktop-only {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Ensure attendance cards are visible */
+  .attendance-card-mobile {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Extra small devices */
+@media screen and (max-width: 375px) {
+  .page-container {
+    padding: 10px !important;
+    padding-top: max(10px, env(safe-area-inset-top, 10px)) !important;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px)) !important;
+  }
+  
+  .stat-card {
+    padding: 12px !important;
+  }
+}
+

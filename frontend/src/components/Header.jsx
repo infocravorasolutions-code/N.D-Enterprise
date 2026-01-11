@@ -47,25 +47,29 @@ const Header = ({ onMenuClick, isMobile, hideMenu = false }) => {
               {!isMobile && <span style={{ marginLeft: '8px' }}>Logout</span>}
             </button>
           )}
-          {isMobile && !hideMenu && (
+          {isMobile && (
             <>
-              <button 
-                className={`header-action-btn header-refresh-btn ${isRefreshing ? 'refreshing' : ''}`}
-                onClick={handleRefresh} 
-                aria-label="Refresh page"
-                title="Refresh"
-                disabled={isRefreshing}
-              >
-                <FaSync />
-              </button>
-              <button 
-                className="header-action-btn header-menu-btn" 
-                onClick={onMenuClick} 
-                aria-label="Open menu"
-                title="Menu"
-              >
-                <FaBars />
-              </button>
+              {!hideMenu && (
+                <button 
+                  className={`header-action-btn header-refresh-btn ${isRefreshing ? 'refreshing' : ''}`}
+                  onClick={handleRefresh} 
+                  aria-label="Refresh page"
+                  title="Refresh"
+                  disabled={isRefreshing}
+                >
+                  <FaSync />
+                </button>
+              )}
+              {!hideMenu && (
+                <button 
+                  className="header-action-btn header-menu-btn" 
+                  onClick={onMenuClick} 
+                  aria-label="Open menu"
+                  title="Menu"
+                >
+                  <FaBars />
+                </button>
+              )}
             </>
           )}
         </div>

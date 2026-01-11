@@ -2074,7 +2074,7 @@ form, .form-group, .form-row {
 }
 
 /* Responsive action buttons */
-.action-buttons, .header-actions {
+.action-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -2082,11 +2082,36 @@ form, .form-group, .form-row {
   max-width: 100%;
 }
 
+/* Don't apply these styles to header-actions - they have their own styles */
+.app-header .header-actions {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  width: auto !important;
+  max-width: none !important;
+  gap: 4px !important;
+}
+
+.app-header .header-actions button,
+.app-header .header-action-btn {
+  flex: 0 0 auto !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  width: 24px !important;
+}
+
 @media (max-width: 768px) {
-  .action-buttons button,
-  .header-actions button {
+  .action-buttons button {
     flex: 1;
     min-width: calc(50% - 4px);
+  }
+  
+  /* Ensure header buttons are not affected */
+  .app-header .header-actions button,
+  .app-header .header-action-btn {
+    flex: 0 0 auto !important;
+    min-width: 24px !important;
+    max-width: 24px !important;
+    width: 24px !important;
   }
 }
 

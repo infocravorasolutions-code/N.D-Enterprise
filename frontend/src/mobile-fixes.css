@@ -4,6 +4,84 @@
  * Add this import to main.jsx if needed
  */
 
+/* CRITICAL: Force mobile styles for WebView - apply regardless of media query */
+/* These rules ensure React Native WebView always gets mobile styles */
+html, body {
+  width: 100% !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  position: relative !important;
+  -webkit-text-size-adjust: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#root {
+  width: 100% !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  position: relative !important;
+}
+
+/* Force mobile card views to show by default (will be overridden on desktop by media query) */
+.muster-mobile-cards,
+.muster-mobile-cards.mobile-only,
+.attendance-mobile-cards,
+.attendance-mobile-cards.mobile-only,
+.mobile-cards-view,
+.mobile-cards-view.mobile-only {
+  display: flex !important;
+  flex-direction: column !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  gap: 16px !important;
+}
+
+/* Hide desktop tables by default (will be shown on desktop by media query) */
+/* This ensures WebView never shows desktop tables */
+.table-container.desktop-only,
+.desktop-only,
+table.data-table {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Only show desktop tables on real desktop (not WebView) */
+/* Use pointer:fine and hover to ensure it's a real desktop, not WebView */
+@media (min-width: 769px) and (pointer: fine) and (hover: hover) {
+  .table-container.desktop-only,
+  .desktop-only {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  table.data-table {
+    display: table !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+  }
+  
+  .muster-mobile-cards,
+  .muster-mobile-cards.mobile-only,
+  .attendance-mobile-cards,
+  .attendance-mobile-cards.mobile-only,
+  .mobile-cards-view,
+  .mobile-cards-view.mobile-only {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+}
+
 /* Critical mobile fixes that must apply in production */
 @media screen and (max-width: 768px) {
   /* Force viewport constraints */
@@ -144,13 +222,46 @@
     opacity: 1 !important;
     width: 100% !important;
     max-width: 100% !important;
+    gap: 16px !important;
   }
   
   /* Hide desktop tables on mobile */
   .table-container.desktop-only,
+  .desktop-only,
+  .data-table {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+}
+
+/* FORCE mobile styles for WebView - detect by user agent or screen size */
+/* This applies even if media queries don't work in WebView */
+@media screen and (max-width: 768px),
+       screen and (max-device-width: 768px),
+       (pointer: coarse) {
+  /* Force mobile card views */
+  .muster-mobile-cards,
+  .muster-mobile-cards.mobile-only,
+  .attendance-mobile-cards,
+  .attendance-mobile-cards.mobile-only,
+  .mobile-cards-view,
+  .mobile-cards-view.mobile-only {
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 16px !important;
+  }
+  
+  /* Hide desktop tables */
+  .table-container.desktop-only,
   .desktop-only {
     display: none !important;
     visibility: hidden !important;
+    opacity: 0 !important;
   }
   
   /* Ensure attendance cards are visible */

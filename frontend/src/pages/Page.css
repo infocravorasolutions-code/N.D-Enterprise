@@ -1737,7 +1737,8 @@
 }
 
 /* Desktop: Ensure mobile cards are hidden and tables are shown */
-@media (min-width: 769px) {
+/* Use both min-width AND pointer:fine to ensure we're on a real desktop */
+@media (min-width: 769px) and (pointer: fine) and (hover: hover) {
   .muster-mobile-cards,
   .muster-mobile-cards.mobile-only,
   .attendance-mobile-cards,
@@ -1746,15 +1747,18 @@
   .mobile-cards-view.mobile-only {
     display: none !important;
     visibility: hidden !important;
+    opacity: 0 !important;
   }
   
   .table-container.desktop-only {
     display: block !important;
     visibility: visible !important;
+    opacity: 1 !important;
   }
   
   .data-table {
     display: table !important;
+    visibility: visible !important;
   }
 }
 
@@ -2171,25 +2175,64 @@ select, .form-select {
    ============================================ */
 
 /* Hide tables on mobile, show cards */
-@media (max-width: 768px) {
-  .data-table {
+@media (max-width: 768px),
+       screen and (max-device-width: 768px),
+       (pointer: coarse) {
+  .data-table,
+  table.data-table {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
   }
 
-  .mobile-cards-view {
-    display: block !important;
+  .mobile-cards-view,
+  .muster-mobile-cards,
+  .attendance-mobile-cards {
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 }
 
 /* Desktop: Hide cards, show tables */
-@media (min-width: 769px) {
-  .mobile-cards-view {
+@media (min-width: 769px) and (pointer: fine) {
+  .mobile-cards-view,
+  .muster-mobile-cards,
+  .attendance-mobile-cards {
     display: none !important;
+    visibility: hidden !important;
   }
 
   .data-table {
     display: table !important;
+    visibility: visible !important;
   }
+}
+
+/* WebView detection - force mobile if WebView detected */
+body.webview-mobile,
+html.webview-mobile {
+  /* Force mobile styles */
+}
+
+body.webview-mobile .muster-mobile-cards,
+body.webview-mobile .attendance-mobile-cards,
+body.webview-mobile .mobile-cards-view {
+  display: flex !important;
+  flex-direction: column !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+body.webview-mobile .table-container.desktop-only,
+body.webview-mobile .desktop-only,
+body.webview-mobile table.data-table {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
 }
 
 /* Mobile Cards Container */

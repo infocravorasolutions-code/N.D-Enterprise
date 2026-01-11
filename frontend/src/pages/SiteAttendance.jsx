@@ -10,6 +10,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
+import { downloadPDF, downloadExcel } from '../utils/fileDownload'
 import './Page.css'
 
 const SiteAttendance = () => {
@@ -441,7 +442,7 @@ const SiteAttendance = () => {
       }
 
       const fileName = `ND_Enterprise_${site?.name || 'Site'}_AttendanceReport_${startDate || 'all'}_${endDate || 'all'}.pdf`
-      doc.save(fileName)
+      downloadPDF(doc, fileName)
       showAlert('PDF exported successfully', 'Export Success', 'success')
     } catch (error) {
       console.error('Error exporting PDF:', error)
@@ -545,7 +546,7 @@ const SiteAttendance = () => {
       XLSX.utils.book_append_sheet(wb, ws, 'Attendance Data')
 
       const fileName = `${site?.name || 'Site'}_AttendanceReport_${startDate || 'all'}_${endDate || 'all'}.xlsx`
-      XLSX.writeFile(wb, fileName)
+      downloadExcel(wb, fileName)
       showAlert('Excel file exported successfully', 'Export Success', 'success')
     } catch (error) {
       console.error('Error exporting Excel:', error)

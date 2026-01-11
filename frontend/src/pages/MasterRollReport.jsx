@@ -5,6 +5,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
+import { downloadPDF, downloadExcel } from '../utils/fileDownload'
 import './Page.css'
 
 const MasterRollReport = () => {
@@ -465,7 +466,7 @@ const MasterRollReport = () => {
         alert('PDF export library not loaded. The autoTable plugin may not be properly imported. Please check the console and refresh the page.')
         // Try to create a simple PDF without table as fallback
         doc.text('PDF export requires jspdf-autotable plugin', 20, 50)
-        doc.save(`MusterRoll_${year}_${month}.pdf`)
+        downloadPDF(doc, `MusterRoll_${year}_${month}.pdf`)
         return
       }
       
@@ -490,7 +491,7 @@ const MasterRollReport = () => {
       }
       
       console.log('Saving PDF...')
-      doc.save(`ND_Enterprise_MusterRoll_${year}_${month}.pdf`)
+      downloadPDF(doc, `ND_Enterprise_MusterRoll_${year}_${month}.pdf`)
     } catch (error) {
       console.error('Error exporting PDF:', error)
       alert('Failed to export PDF. Please check the console for details.')
@@ -557,7 +558,7 @@ const MasterRollReport = () => {
     ws['!cols'] = colWidths
     
     XLSX.utils.book_append_sheet(wb, ws, 'Muster Roll')
-    XLSX.writeFile(wb, `MusterRoll_${year}_${month}.xlsx`)
+    downloadExcel(wb, `MusterRoll_${year}_${month}.xlsx`)
   }
 
   return (

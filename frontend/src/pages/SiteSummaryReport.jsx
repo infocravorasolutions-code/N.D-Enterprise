@@ -7,6 +7,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
+import { downloadPDF, downloadExcel } from '../utils/fileDownload'
 import './Page.css'
 
 const SiteSummaryReport = () => {
@@ -278,7 +279,7 @@ const SiteSummaryReport = () => {
         doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, footerY + 5, { align: 'right' })
       }
       
-      doc.save(`ND_Enterprise_${site?.name || 'Site'}_SummaryReport_${fromDate}_${toDate}.pdf`)
+      downloadPDF(doc, `ND_Enterprise_${site?.name || 'Site'}_SummaryReport_${fromDate}_${toDate}.pdf`)
     } catch (error) {
       console.error('Error exporting PDF:', error)
       alert(`Failed to export PDF: ${error.message}`)
@@ -317,7 +318,7 @@ const SiteSummaryReport = () => {
     ]
     
     XLSX.utils.book_append_sheet(wb, ws, 'Summary Report')
-    XLSX.writeFile(wb, `${site?.name || 'Site'}_SummaryReport_${fromDate}_${toDate}.xlsx`)
+    downloadExcel(wb, `${site?.name || 'Site'}_SummaryReport_${fromDate}_${toDate}.xlsx`)
   }
 
   return (

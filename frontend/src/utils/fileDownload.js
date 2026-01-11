@@ -35,20 +35,50 @@ export const downloadFileInWebView = (fileData, fileName, mimeType) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         try {
-          const base64data = reader.result.split(',')[1]; // Remove data:mime;base64, prefix
+          let base64data;
+          const result = reader.result;
+          
+          // Handle different result formats
+          if (typeof result === 'string') {
+            // Remove data:mime;base64, prefix if present
+            base64data = result.includes(',') ? result.split(',')[1] : result;
+          } else {
+            console.error('Unexpected FileReader result type:', typeof result);
+            reject(new Error('Unexpected file data format'));
+            return;
+          }
+          
+          // Validate base64 data
+          if (!base64data || base64data.length === 0) {
+            console.error('Empty base64 data');
+            reject(new Error('Empty file data'));
+            return;
+          }
+          
+          console.log('File data prepared:', {
+            fileName,
+            mimeType,
+            dataLength: base64data.length,
+            preview: base64data.substring(0, 50) + '...'
+          });
           
           // Send to React Native
           if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(
-              JSON.stringify({
-                type: 'DOWNLOAD_FILE',
-                fileName: fileName,
-                mimeType: mimeType,
-                data: base64data
-              })
-            );
-            console.log('File download message sent to React Native:', fileName);
-            resolve(true);
+            const message = {
+              type: 'DOWNLOAD_FILE',
+              fileName: fileName,
+              mimeType: mimeType,
+              data: base64data
+            };
+            
+            try {
+              window.ReactNativeWebView.postMessage(JSON.stringify(message));
+              console.log('File download message sent to React Native:', fileName, 'Size:', base64data.length);
+              resolve(true);
+            } catch (postError) {
+              console.error('Error posting message to React Native:', postError);
+              reject(postError);
+            }
           } else {
             console.error('ReactNativeWebView not available');
             reject(new Error('ReactNativeWebView not available'));
@@ -61,7 +91,12 @@ export const downloadFileInWebView = (fileData, fileName, mimeType) => {
       
       reader.onerror = (error) => {
         console.error('FileReader error:', error);
-        reject(error);
+        reject(new Error('Failed to read file data: ' + error.message));
+      };
+      
+      reader.onabort = () => {
+        console.error('FileReader aborted');
+        reject(new Error('File reading was aborted'));
       };
       
       if (fileData instanceof Blob) {
@@ -70,8 +105,8 @@ export const downloadFileInWebView = (fileData, fileName, mimeType) => {
         const blob = new Blob([fileData], { type: mimeType });
         reader.readAsDataURL(blob);
       } else {
-        console.error('Unsupported file data type');
-        reject(new Error('Unsupported file data type'));
+        console.error('Unsupported file data type:', typeof fileData, fileData);
+        reject(new Error('Unsupported file data type: ' + typeof fileData));
       }
     } catch (error) {
       console.error('Error downloading file in WebView:', error);

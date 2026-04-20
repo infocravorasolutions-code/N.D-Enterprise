@@ -6,7 +6,6 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
-import { downloadPDF, downloadExcel } from '../utils/fileDownload'
 import './Page.css'
 
 const SummaryReport = () => {
@@ -236,7 +235,7 @@ const SummaryReport = () => {
         doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, footerY + 5, { align: 'right' })
       }
       
-      downloadPDF(doc, `ND_Enterprise_SummaryReport_${fromDate}_${toDate}.pdf`)
+      doc.save(`ND_Enterprise_SummaryReport_${fromDate}_${toDate}.pdf`)
     } catch (error) {
       console.error('Error exporting PDF:', error)
       alert(`Failed to export PDF: ${error.message}`)
@@ -275,7 +274,7 @@ const SummaryReport = () => {
     ]
     
     XLSX.utils.book_append_sheet(wb, ws, 'Summary Report')
-    downloadExcel(wb, `SummaryReport_${fromDate}_${toDate}.xlsx`)
+    XLSX.writeFile(wb, `SummaryReport_${fromDate}_${toDate}.xlsx`)
   }
 
   return (
@@ -371,39 +370,6 @@ const SummaryReport = () => {
               </tbody>
               </table>
             </div>
-
-            {/* Mobile Card View */}
-            <div className="mobile-cards-view">
-              {loading ? (
-                <div className="loading-state">Loading...</div>
-              ) : attendanceData.length === 0 ? (
-                <div className="empty-state">No attendance data available</div>
-              ) : (
-                paginatedData.map((row, index) => (
-                  <div key={index} className="summary-card-mobile">
-                    <div className="summary-card-date">{row.date}</div>
-                    <div className="summary-card-shifts">
-                      <div className="summary-shift-item">
-                        <div className="summary-shift-label">Morning</div>
-                        <div className="summary-shift-value">{row.morning}P</div>
-                      </div>
-                      <div className="summary-shift-item">
-                        <div className="summary-shift-label">Evening</div>
-                        <div className="summary-shift-value">{row.evening}P</div>
-                      </div>
-                      <div className="summary-shift-item">
-                        <div className="summary-shift-label">Night</div>
-                        <div className="summary-shift-value">{row.night}P</div>
-                      </div>
-                    </div>
-                    <div className="summary-card-total">
-                      Total: {row.total} Present
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
             {attendanceData.length > 0 && (
               <Pagination
                 currentPage={currentPage}

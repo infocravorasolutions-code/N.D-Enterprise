@@ -28,9 +28,6 @@ const Header = ({ onMenuClick, isMobile, hideMenu = false }) => {
     navigate('/login')
   }
 
-  // Debug: Log the props to see what's happening
-  console.log('Header render:', { isMobile, hideMenu })
-
   return (
     <header className="app-header">
       <div className="header-content">
@@ -51,25 +48,25 @@ const Header = ({ onMenuClick, isMobile, hideMenu = false }) => {
             </button>
           )}
           {isMobile && !hideMenu && (
-            <button 
-              className={`header-action-btn header-refresh-btn ${isRefreshing ? 'refreshing' : ''}`}
-              onClick={handleRefresh} 
-              aria-label="Refresh page"
-              title="Refresh"
-              disabled={isRefreshing}
-            >
-              <FaSync />
-            </button>
-          )}
-          {isMobile && !hideMenu && (
-            <button 
-              className="header-action-btn header-menu-btn" 
-              onClick={onMenuClick} 
-              aria-label="Open menu"
-              title="Menu"
-            >
-              <FaBars />
-            </button>
+            <>
+              <button 
+                className={`header-action-btn header-refresh-btn ${isRefreshing ? 'refreshing' : ''}`}
+                onClick={handleRefresh} 
+                aria-label="Refresh page"
+                title="Refresh"
+                disabled={isRefreshing}
+              >
+                <FaSync />
+              </button>
+              <button 
+                className="header-action-btn header-menu-btn" 
+                onClick={onMenuClick} 
+                aria-label="Open menu"
+                title="Menu"
+              >
+                <FaBars />
+              </button>
+            </>
           )}
         </div>
       </div>

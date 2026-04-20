@@ -10,7 +10,6 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
-import { downloadPDF, downloadExcel } from '../utils/fileDownload'
 import './Page.css'
 
 const AttendanceReports = () => {
@@ -634,7 +633,7 @@ const AttendanceReports = () => {
       }
 
       const fileName = `ND_Enterprise_AttendanceReport_${fromDate || 'all'}_${toDate || 'all'}.pdf`
-      downloadPDF(doc, fileName)
+      doc.save(fileName)
       showAlert('PDF exported successfully', 'Export Success', 'success')
     } catch (error) {
       console.error('Error exporting PDF:', error)
@@ -738,7 +737,7 @@ const AttendanceReports = () => {
       XLSX.utils.book_append_sheet(wb, ws, 'Attendance Data')
 
       const fileName = `AttendanceReport_${fromDate || 'all'}_${toDate || 'all'}.xlsx`
-      downloadExcel(wb, fileName)
+      XLSX.writeFile(wb, fileName)
       showAlert('Excel file exported successfully', 'Export Success', 'success')
     } catch (error) {
       console.error('Error exporting Excel:', error)
@@ -967,16 +966,7 @@ const AttendanceReports = () => {
                 {error}
               </div>
             ) : attendanceRecords.length === 0 ? (
-              <div className="empty-state" style={{ padding: '40px 20px', textAlign: 'center', color: '#6b7280' }}>
-                <p style={{ fontSize: '16px', margin: 0 }}>No attendance records found</p>
-                <p style={{ fontSize: '14px', margin: '8px 0 0 0', color: '#9ca3af' }}>
-                  {fromDate && toDate ? 'Try adjusting your date range or filters' : 'Please select a date range to view attendance records'}
-                </p>
-              </div>
-            ) : paginatedRecords.length === 0 ? (
-              <div className="empty-state" style={{ padding: '40px 20px', textAlign: 'center', color: '#6b7280' }}>
-                <p style={{ fontSize: '16px', margin: 0 }}>No records on this page</p>
-              </div>
+              <div className="empty-state">No attendance records found</div>
             ) : (
               paginatedRecords.map((record) => {
                 const status = getStatus(record)

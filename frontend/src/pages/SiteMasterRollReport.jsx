@@ -6,7 +6,6 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
-import { downloadPDF, downloadExcel } from '../utils/fileDownload'
 import './Page.css'
 
 const SiteMasterRollReport = () => {
@@ -71,20 +70,14 @@ const SiteMasterRollReport = () => {
       }))
       
       console.log('Fetched employees for site muster roll:', employeesList.length)
-      return employeesList // Return the employees list for immediate use
     } catch (error) {
       console.error('Error fetching employees:', error)
-      return [] // Return empty array on error
     }
   }
 
   const fetchMusterRollData = async () => {
     try {
       setLoading(true)
-      
-      // First, refresh the employees list to get any newly assigned employees
-      const currentEmployees = await fetchEmployees()
-      
       const startDate = fromDate || `${year}-${month}-01`
       const endDate = toDate || `${year}-${month}-${new Date(parseInt(year), parseInt(month), 0).getDate()}`
       
@@ -99,10 +92,9 @@ const SiteMasterRollReport = () => {
       
       console.log('Site attendance records fetched:', attendanceRecords.length)
       console.log('Sample attendance record:', attendanceRecords[0])
-      console.log('Employees list:', currentEmployees.length)
+      console.log('Employees list:', employees.length)
       
-      // Use the freshly fetched employees list (not the state, which might be stale)
-      const processedData = processAttendanceData(attendanceRecords, currentEmployees)
+      const processedData = processAttendanceData(attendanceRecords, employees)
       
       console.log('Processed site muster roll data:', processedData.length)
       console.log('Sample processed row:', processedData[0])
@@ -126,18 +118,6 @@ const SiteMasterRollReport = () => {
     // Group attendance by employee
     const employeeAttendanceMap = {}
     
-    // First, initialize all employees from the employeesList (even without attendance)
-    employeesList.forEach(emp => {
-      const empIdStr = String(emp._id || emp.id)
-      employeeAttendanceMap[empIdStr] = {
-        employeeId: empIdStr,
-        name: emp.name || 'Unknown',
-        designation: emp.designation || 'N/A',
-        shift: emp.shift || 'N/A',
-        attendance: {}
-      }
-    })
-    
     // Create a map of employees by ID for faster lookup
     const employeeMap = {}
     employeesList.forEach(emp => {
@@ -145,7 +125,6 @@ const SiteMasterRollReport = () => {
       employeeMap[empIdStr] = emp
     })
     
-    // Now process attendance records to fill in attendance data
     attendanceRecords.forEach(record => {
       // Handle both populated and unpopulated employeeId
       let empId = null
@@ -168,7 +147,6 @@ const SiteMasterRollReport = () => {
         return // Skip records without employeeId
       }
       
-      // Initialize employee in map if not already present (for employees with attendance but not in employeesList)
       if (!employeeAttendanceMap[empId]) {
         employeeAttendanceMap[empId] = {
           employeeId: empId,
@@ -261,25 +239,6 @@ const SiteMasterRollReport = () => {
   const dayTotals = calculateDayTotals()
   const rowTotals = calculateRowTotals()
   const grandTotal = Object.values(rowTotals).reduce((sum, total) => sum + total, 0)
-
-  // Calculate attendance summary for each employee (for mobile cards)
-  const calculateEmployeeSummary = (row) => {
-    const attendance = row.attendance || {}
-    let present = 0
-    let absent = 0
-    let weekOff = 0
-    const daysInMonth = getDaysInMonth()
-    
-    for (let day = 1; day <= daysInMonth; day++) {
-      if (attendance[day]) {
-        if (attendance[day].status === 'P') present++
-        else if (attendance[day].status === 'A') absent++
-        else if (attendance[day].status === 'W') weekOff++
-      }
-    }
-    
-    return { present, absent, weekOff }
-  }
 
   const exportToPDF = async () => {
     try {
@@ -506,7 +465,7 @@ const SiteMasterRollReport = () => {
         doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, footerY + 5, { align: 'right' })
       }
       
-      downloadPDF(doc, `ND_Enterprise_${site?.name || 'Site'}_MusterRoll_${year}_${month}.pdf`)
+      doc.save(`ND_Enterprise_${site?.name || 'Site'}_MusterRoll_${year}_${month}.pdf`)
     } catch (error) {
       console.error('Error exporting PDF:', error)
       alert(`Failed to export PDF: ${error.message}`)
@@ -576,7 +535,7 @@ const SiteMasterRollReport = () => {
     ws['!cols'] = colWidths
     
     XLSX.utils.book_append_sheet(wb, ws, 'Muster Roll')
-    downloadExcel(wb, `${site?.name || 'Site'}_MusterRoll_${year}_${month}.xlsx`)
+    XLSX.writeFile(wb, `${site?.name || 'Site'}_MusterRoll_${year}_${month}.xlsx`)
   }
 
   return (
@@ -683,68 +642,7 @@ const SiteMasterRollReport = () => {
 
         {/* Muster Roll Table */}
         <div className="content-section">
-          {/* Mobile Card View */}
-          <div className="muster-mobile-cards mobile-only">
-            {loading ? (
-              <div className="empty-state">Loading...</div>
-            ) : filteredData.length === 0 ? (
-              <div className="empty-state">No data available</div>
-            ) : (
-              filteredData.map((row, index) => {
-                const summary = calculateEmployeeSummary(row)
-                return (
-                  <div key={row.employeeId || index} className="muster-card-mobile">
-                    <div className="muster-card-header">
-                      <div className="muster-card-info">
-                        <h3 className="muster-card-name">{row.name}</h3>
-                        <p className="muster-card-shift">{row.shift || 'N/A'}</p>
-                      </div>
-                      <div className="muster-card-summary">
-                        <span className="summary-item summary-present">{summary.present}P</span>
-                        <span className="summary-item summary-absent">{summary.absent}A</span>
-                        <span className="summary-item summary-weekoff">{summary.weekOff}W</span>
-                      </div>
-                    </div>
-                    <div className="muster-card-attendance">
-                      <div className="attendance-days-header">
-                        {Array.from({ length: getDaysInMonth() }, (_, i) => i + 1).map((day) => (
-                          <div key={day} className="attendance-day-header">{day}</div>
-                        ))}
-                      </div>
-                      <div className="attendance-days-content">
-                        {Array.from({ length: getDaysInMonth() }, (_, i) => i + 1).map((day) => (
-                          <div key={day} className="attendance-day-cell">
-                            {row.attendance && row.attendance[day] ? (
-                              <div className="attendance-day-content">
-                                <div className={`attendance-day-status badge-${row.attendance[day].status.toLowerCase()}`}>
-                                  {row.attendance[day].status}
-                                </div>
-                                {row.attendance[day].stepIn && (
-                                  <div className="attendance-day-time attendance-time-in">
-                                    {row.attendance[day].stepIn}
-                                  </div>
-                                )}
-                                {row.attendance[day].stepOut && (
-                                  <div className="attendance-day-time attendance-time-out">
-                                    {row.attendance[day].stepOut}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="attendance-day-empty">-</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          {/* Desktop Table View */}
-          <div className="table-container desktop-only">
+          <div className="table-container">
             <table className="data-table muster-table">
               <thead>
                 <tr>

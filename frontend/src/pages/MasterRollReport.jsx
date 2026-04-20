@@ -5,7 +5,6 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import logoImage from '../images/Logo.jpg'
-import { downloadPDF, downloadExcel } from '../utils/fileDownload'
 import './Page.css'
 
 const MasterRollReport = () => {
@@ -95,18 +94,6 @@ const MasterRollReport = () => {
     // Group attendance by employee
     const employeeAttendanceMap = {}
     
-    // First, initialize all employees from the employeesList (even without attendance)
-    employeesList.forEach(emp => {
-      const empIdStr = String(emp._id || emp.id)
-      employeeAttendanceMap[empIdStr] = {
-        employeeId: empIdStr,
-        name: emp.name || 'Unknown',
-        designation: emp.designation || 'N/A',
-        shift: emp.shift || 'N/A',
-        attendance: {}
-      }
-    })
-    
     // Create a map of employees by ID for faster lookup
     const employeeMap = {}
     employeesList.forEach(emp => {
@@ -114,7 +101,6 @@ const MasterRollReport = () => {
       employeeMap[empIdStr] = emp
     })
     
-    // Now process attendance records to fill in attendance data
     attendanceRecords.forEach(record => {
       // Handle both populated and unpopulated employeeId
       let empId = null
@@ -137,7 +123,6 @@ const MasterRollReport = () => {
         return // Skip records without employeeId
       }
       
-      // Initialize employee in map if not already present (for employees with attendance but not in employeesList)
       if (!employeeAttendanceMap[empId]) {
         employeeAttendanceMap[empId] = {
           employeeId: empId,
@@ -160,22 +145,8 @@ const MasterRollReport = () => {
       }
     })
     
-    // Convert to array and fill missing days
-    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate()
-    return Object.values(employeeAttendanceMap).map(emp => {
-      const filled = {}
-      for (let day = 1; day <= daysInMonth; day++) {
-        if (emp.attendance[day]) {
-          filled[day] = emp.attendance[day]
-        } else {
-          filled[day] = { status: 'A', stepIn: '', stepOut: '' }
-        }
-      }
-      return {
-        ...emp,
-        attendance: filled
-      }
-    })
+    // Convert to array format
+    return Object.values(employeeAttendanceMap)
   }
 
   const formatTime = (dateString) => {
@@ -466,7 +437,7 @@ const MasterRollReport = () => {
         alert('PDF export library not loaded. The autoTable plugin may not be properly imported. Please check the console and refresh the page.')
         // Try to create a simple PDF without table as fallback
         doc.text('PDF export requires jspdf-autotable plugin', 20, 50)
-        downloadPDF(doc, `MusterRoll_${year}_${month}.pdf`)
+        doc.save(`MusterRoll_${year}_${month}.pdf`)
         return
       }
       
@@ -491,7 +462,7 @@ const MasterRollReport = () => {
       }
       
       console.log('Saving PDF...')
-      downloadPDF(doc, `ND_Enterprise_MusterRoll_${year}_${month}.pdf`)
+      doc.save(`ND_Enterprise_MusterRoll_${year}_${month}.pdf`)
     } catch (error) {
       console.error('Error exporting PDF:', error)
       alert('Failed to export PDF. Please check the console for details.')
@@ -558,7 +529,7 @@ const MasterRollReport = () => {
     ws['!cols'] = colWidths
     
     XLSX.utils.book_append_sheet(wb, ws, 'Muster Roll')
-    downloadExcel(wb, `MusterRoll_${year}_${month}.xlsx`)
+    XLSX.writeFile(wb, `MusterRoll_${year}_${month}.xlsx`)
   }
 
   return (

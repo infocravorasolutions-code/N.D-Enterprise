@@ -18,14 +18,50 @@ import { forgotPassword } from './controller/auth.controller.js';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5678;
-const MONGO_URI = process.env.MONGODB_URI ;
-app.use(cors(
-    {
-        origin: "*", // Allow all origins, you can restrict this to specific domains
-        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-        credentials: true,
-    }
-));
+const MONGO_URI = process.env.MONGODB_URI;
+
+// CORS: Allow frontend origins (where the browser loads the app), NOT the API domain.
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  'https://ndenterpries.com',
+  'https://www.ndenterpries.com',
+  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()) : []),
+];
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  try {
+    if (/\.vercel\.app$/.test(new URL(origin).hostname)) return true;
+  } catch (_) {}
+  return false;
+};
+
+// Explicit OPTIONS handler - some proxies return 502 if OPTIONS isn't handled early.
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  res.sendStatus(204);
+});
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Reflect request origin (allows any); use isOriginAllowed(origin) to restrict
+    cb(null, origin || true);
+  },
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204,
+  preflightContinue: false,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/static", express.static("upload"));

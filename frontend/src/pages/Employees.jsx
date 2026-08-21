@@ -386,7 +386,7 @@ const Employees = () => {
               </select>
             </div>
           </div>
-          <div className="table-container">
+          <div className="table-container desktop-only">
             <table className="data-table">
               <thead>
                 <tr>
@@ -483,7 +483,7 @@ const Employees = () => {
             </table>
           </div>
           {/* Mobile Card View */}
-          <div className="mobile-cards-view">
+          <div className="mobile-cards-view mobile-only">
             {loading ? (
               <div className="loading-state">Loading...</div>
             ) : error ? (

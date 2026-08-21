@@ -24,10 +24,13 @@
 /* Mobile sidebar behavior */
 .sidebar.mobile {
   width: 280px;
+  max-width: 85vw;
   transform: translateX(-100%);
-  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
-  top: 60px;
-  height: calc(100vh - 60px);
+  box-shadow: 8px 0 30px rgba(0, 0, 0, 0.4);
+  top: 0;
+  height: 100vh;
+  z-index: 1001;
+  background: #0f172a;
 }
 
 .sidebar.mobile.open {
@@ -377,26 +380,64 @@
 
 /* Additional mobile optimizations */
 @media (max-width: 768px) {
-  .sidebar-header {
+  .sidebar.mobile .sidebar-header {
     padding: 16px;
-    min-height: 80px;
+    min-height: 64px;
+    align-items: center;
+    justify-content: space-between;
   }
 
-  .sidebar-logo {
-    font-size: 18px;
+  .sidebar.mobile .sidebar-logo-section {
+    flex-direction: row;
+    align-items: center;
+    padding: 0;
+    border-bottom: none;
+    gap: 12px;
   }
 
-  .sidebar-subtitle {
-    font-size: 12px;
+  .sidebar.mobile .sidebar-logo-image {
+    width: 36px;
+    height: 36px;
+    max-width: 36px;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .sidebar.mobile .sidebar-logo-text {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .sidebar.mobile .sidebar-logo {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .sidebar.mobile .sidebar-subtitle {
+    font-size: 11px;
+    letter-spacing: 0.2px;
+  }
+
+  .sidebar.mobile .close-btn {
+    display: flex;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
   }
 
   .nav-icon {
-    font-size: 22px;
-    min-width: 28px;
+    font-size: 20px;
+    min-width: 24px;
   }
 
   .nav-label {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .sidebar-footer {

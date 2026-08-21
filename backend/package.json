@@ -15,6 +15,8 @@
     "prepare:test": "node prepare-test-data-stepin.js",
     "check:db": "node check-database.js",
     "import:employees": "node import-employees-from-excel.js",
+    "seed:july": "node seed-july-attendance.js --month 7 --year 2026",
+    "seed:attendance": "node seed-july-attendance.js",
     "vercel-build": "cd .. && npm install && npm run build && mkdir -p server/.next && cp -r .next/* server/.next/"
   },
   "keywords": [],

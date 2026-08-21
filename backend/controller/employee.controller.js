@@ -27,7 +27,7 @@ import mongoose from "mongoose";
 
 export const createEmployee = async (req, res) => {
   try {
-    const { email, name, mobile, address, managerId, shift, createdBy, isCreatedByAdmin, siteId } = req.body;
+    const { email, name, mobile, address, managerId, shift, createdBy, isCreatedByAdmin, siteId, autoPunchEnabled } = req.body;
 
     console.log('[CREATE EMPLOYEE] Payload:', req.body);
 
@@ -35,11 +35,16 @@ export const createEmployee = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // If an image was uploaded, save its filename or path
     let image = "";
     if (req.file) {
-      image = req.file.filename; // or `${req.protocol}://${req.get("host")}/upload/${req.file.filename}` for full URL
+      image = req.file.filename;
     }
+
+    const finalSiteId = siteId && siteId !== 'null' && siteId !== '' ? siteId : null;
+    const defaultAutoPunch = finalSiteId ? true : false;
+    const finalAutoPunch = typeof autoPunchEnabled !== 'undefined' && autoPunchEnabled !== null
+      ? Boolean(autoPunchEnabled)
+      : defaultAutoPunch;
 
     const newEmployee = new Employee({
       email,
@@ -50,8 +55,9 @@ export const createEmployee = async (req, res) => {
       shift,
       createdBy,
       isCreatedByAdmin,
-      image, // optional image field
-      siteId: siteId || null // optional siteId field
+      image,
+      siteId: finalSiteId,
+      autoPunchEnabled: finalAutoPunch
     });
 
     await newEmployee.save();
@@ -290,6 +296,13 @@ export const createEmployeeByManager = async (req, res) => {
         
         // If siteId not provided, use manager's siteId from req.user (set by middleware)
         let finalSiteId = siteId || user.siteId || null;
+        if (finalSiteId === 'null' || finalSiteId === '') finalSiteId = null;
+
+        const defaultAutoPunch = finalSiteId ? true : false;
+        const { autoPunchEnabled } = req.body;
+        const finalAutoPunch = typeof autoPunchEnabled !== 'undefined' && autoPunchEnabled !== null
+          ? Boolean(autoPunchEnabled)
+          : defaultAutoPunch;
         
         const newEmployee = new Employee({ 
             email, 
@@ -301,7 +314,8 @@ export const createEmployeeByManager = async (req, res) => {
             createdBy, 
             isCreatedByAdmin,
             image, // optional image field
-            siteId: finalSiteId || null // optional siteId field
+            siteId: finalSiteId,
+            autoPunchEnabled: finalAutoPunch
         });
         await newEmployee.save();
         res.status(201).json({ message: "Employee created successfully", employee: newEmployee });
@@ -312,4 +326,58 @@ export const createEmployeeByManager = async (req, res) => {
         console.error("Error creating employee by manager:", error);
         res.status(500).json({ message: "Error creating employee by manager", error });
     }
+};
+
+// Toggle auto punch for single employee
+export const toggleAutoPunch = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { autoPunchEnabled } = req.body;
+
+    const employee = await Employee.findById(id);
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    employee.autoPunchEnabled = typeof autoPunchEnabled === 'boolean' 
+      ? autoPunchEnabled 
+      : !employee.autoPunchEnabled;
+
+    await employee.save();
+
+    res.status(200).json({
+      message: `Auto punch ${employee.autoPunchEnabled ? 'enabled' : 'disabled'} for ${employee.name}`,
+      employee
+    });
+  } catch (error) {
+    console.error("Error toggling auto punch:", error);
+    res.status(500).json({ message: "Error toggling auto punch", error: error.message });
+  }
+};
+
+// Bulk toggle auto punch for multiple employees
+export const bulkToggleAutoPunch = async (req, res) => {
+  try {
+    const { employeeIds, autoPunchEnabled } = req.body;
+
+    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({ message: "Employee IDs array is required" });
+    }
+
+    const targetState = Boolean(autoPunchEnabled);
+    const objectIds = employeeIds.map(id => new mongoose.Types.ObjectId(id));
+
+    const result = await Employee.updateMany(
+      { _id: { $in: objectIds } },
+      { $set: { autoPunchEnabled: targetState } }
+    );
+
+    res.status(200).json({
+      message: `Auto punch set to ${targetState ? 'ON' : 'OFF'} for ${result.modifiedCount} employee(s)`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error("Error bulk updating auto punch:", error);
+    res.status(500).json({ message: "Error updating auto punch status", error: error.message });
+  }
 };

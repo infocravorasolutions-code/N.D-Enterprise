@@ -11,7 +11,8 @@ import {
   FaClock,
   FaSun,
   FaMoon,
-  FaEdit
+  FaEdit,
+  FaTrash
 } from 'react-icons/fa'
 import { siteAPI } from '../services/api'
 import './Page.css'
@@ -59,6 +60,20 @@ const SiteDetails = () => {
       alert('Failed to fetch site statistics. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDeleteSite = async () => {
+    if (!site) return
+    if (window.confirm(`Are you sure you want to delete "${site.name}"?\n\nAssociated employees and managers will be unassigned from this site.`)) {
+      try {
+        await siteAPI.delete(id)
+        alert('Site deleted successfully!')
+        navigate('/sites')
+      } catch (error) {
+        console.error('Error deleting site:', error)
+        alert(error.message || 'Failed to delete site.')
+      }
     }
   }
 
@@ -135,14 +150,42 @@ const SiteDetails = () => {
               {site.status?.charAt(0).toUpperCase() + site.status?.slice(1)}
             </span>
             {!isReadonlyAdminWithSite && (
-              <button 
-                className="btn-primary"
-                onClick={() => navigate(`/sites/${id}/edit`)}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                <FaEdit style={{ fontSize: '14px' }} />
-                Edit Site
-              </button>
+              <>
+                <button 
+                  className="btn-primary"
+                  onClick={() => navigate(`/sites/${id}/edit`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <FaEdit style={{ fontSize: '14px' }} />
+                  Edit Site
+                </button>
+                <button 
+                  onClick={handleDeleteSite}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '500',
+                    fontSize: '14px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#dc2626'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ef4444'
+                  }}
+                >
+                  <FaTrash style={{ fontSize: '14px' }} />
+                  Delete Site
+                </button>
+              </>
             )}
           </div>
         </div>

@@ -49,6 +49,10 @@ default:""
     type: Schema.Types.ObjectId,
     ref: 'Site',
     default: null // null means global employee, not assigned to any site
+  },
+  autoPunchEnabled: {
+    type: Boolean,
+    default: false // Defaults to false for global employees; set to true for site employees
   }
 }, {
   timestamps: true

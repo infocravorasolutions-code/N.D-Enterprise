@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { FaSearch, FaArrowLeft, FaUser, FaPlus, FaEdit, FaTrash, FaUsers, FaExchangeAlt, FaUnlink } from 'react-icons/fa'
+import { FaSearch, FaArrowLeft, FaUser, FaPlus, FaEdit, FaTrash, FaUsers, FaExchangeAlt, FaUnlink, FaCheckCircle, FaTimesCircle } from 'react-icons/fa'
 import { siteAPI, employeeAPI } from '../services/api'
 import { getStaticUrl } from '../config'
 import AddEmployeeModal from '../components/AddEmployeeModal'
 import AssignEmployeesModal from '../components/AssignEmployeesModal'
+import ToggleSwitch from '../components/ToggleSwitch'
 import './Page.css'
 
 const SiteEmployees = () => {
@@ -16,6 +17,7 @@ const SiteEmployees = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [isWorkingFilter, setIsWorkingFilter] = useState('')
   const [shiftFilter, setShiftFilter] = useState('')
+  const [autoPunchFilter, setAutoPunchFilter] = useState('') // '', 'enabled', 'disabled'
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [isReassignModalOpen, setIsReassignModalOpen] = useState(false)
@@ -67,15 +69,25 @@ const SiteEmployees = () => {
     }
   }
 
+  const autoPunchOnCount = employees.filter(e => e.autoPunchEnabled !== false).length
+  const autoPunchOffCount = employees.filter(e => e.autoPunchEnabled === false).length
+
   const filteredEmployees = employees.filter(emp => {
-    if (!searchQuery) return true
-    const query = searchQuery.toLowerCase()
-    return (
-      emp.name?.toLowerCase().includes(query) ||
-      emp.email?.toLowerCase().includes(query) ||
-      emp.mobile?.toLowerCase().includes(query) ||
-      emp.address?.toLowerCase().includes(query)
-    )
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      const matchesSearch = (
+        emp.name?.toLowerCase().includes(query) ||
+        emp.email?.toLowerCase().includes(query) ||
+        emp.mobile?.toLowerCase().includes(query) ||
+        emp.address?.toLowerCase().includes(query)
+      )
+      if (!matchesSearch) return false
+    }
+
+    if (autoPunchFilter === 'enabled' && emp.autoPunchEnabled === false) return false
+    if (autoPunchFilter === 'disabled' && emp.autoPunchEnabled !== false) return false
+
+    return true
   })
 
   const handleAddEmployee = () => {
@@ -100,13 +112,13 @@ const SiteEmployees = () => {
         managerId: data.manager || '',
         createdBy: adminId,
         isCreatedByAdmin: true,
-        siteId: id // Assign to current site
+        siteId: id,
+        autoPunchEnabled: data.autoPunchEnabled !== false
       }
 
       let response
       if (editingEmployee) {
-        // Update existing employee
-        employeeData.siteId = id // Ensure siteId is set on update
+        employeeData.siteId = id
         response = await employeeAPI.update(editingEmployee._id, employeeData, data.photo)
       } else {
         // Create new employee
@@ -175,6 +187,31 @@ const SiteEmployees = () => {
     } catch (err) {
       console.error('Error unassigning employees:', err)
       alert(err.message || 'Failed to unassign employees')
+    }
+  }
+
+  const handleToggleAutoPunch = async (employeeId, currentStatus) => {
+    try {
+      const nextStatus = !currentStatus
+      await employeeAPI.toggleAutoPunch(employeeId, nextStatus)
+      setEmployees(prev => prev.map(emp => emp._id === employeeId ? { ...emp, autoPunchEnabled: nextStatus } : emp))
+    } catch (err) {
+      console.error('Error toggling auto punch:', err)
+      alert(err.message || 'Failed to toggle auto punch status')
+    }
+  }
+
+  const handleBulkAutoPunch = async (enableState) => {
+    if (selectedEmployees.size === 0) return
+    const ids = Array.from(selectedEmployees)
+    try {
+      await employeeAPI.bulkToggleAutoPunch(ids, enableState)
+      setEmployees(prev => prev.map(emp => ids.includes(emp._id) ? { ...emp, autoPunchEnabled: enableState } : emp))
+      alert(`Auto punch set to ${enableState ? 'ON' : 'OFF'} for ${ids.length} employee(s)`)
+      setSelectedEmployees(new Set())
+    } catch (err) {
+      console.error('Error bulk updating auto punch:', err)
+      alert(err.message || 'Failed to bulk update auto punch')
     }
   }
 
@@ -283,6 +320,92 @@ const SiteEmployees = () => {
       </div>
 
       <div className="page-content">
+        {/* Stats Cards Section */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '16px',
+          marginBottom: '20px'
+        }}>
+          <div 
+            onClick={() => setAutoPunchFilter('')}
+            style={{
+              background: 'white',
+              padding: '16px 20px',
+              borderRadius: '12px',
+              border: autoPunchFilter === '' ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div>
+              <p style={{ margin: 0, fontSize: '13px', color: '#64748b', fontWeight: '500' }}>Site Workers</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: '700', color: '#1e293b' }}>
+                {employees.length}
+              </p>
+            </div>
+            <div style={{ background: '#eff6ff', padding: '12px', borderRadius: '10px', color: '#3b82f6' }}>
+              <FaUsers style={{ fontSize: '22px' }} />
+            </div>
+          </div>
+
+          <div 
+            onClick={() => setAutoPunchFilter(autoPunchFilter === 'enabled' ? '' : 'enabled')}
+            style={{
+              background: 'white',
+              padding: '16px 20px',
+              borderRadius: '12px',
+              border: autoPunchFilter === 'enabled' ? '2px solid #10b981' : '1px solid #e2e8f0',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div>
+              <p style={{ margin: 0, fontSize: '13px', color: '#047857', fontWeight: '600' }}>⚡ Auto Punch ON</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: '700', color: '#065f46' }}>
+                {autoPunchOnCount}
+              </p>
+            </div>
+            <div style={{ background: '#d1fae5', padding: '12px', borderRadius: '10px', color: '#10b981' }}>
+              <FaCheckCircle style={{ fontSize: '22px' }} />
+            </div>
+          </div>
+
+          <div 
+            onClick={() => setAutoPunchFilter(autoPunchFilter === 'disabled' ? '' : 'disabled')}
+            style={{
+              background: 'white',
+              padding: '16px 20px',
+              borderRadius: '12px',
+              border: autoPunchFilter === 'disabled' ? '2px solid #64748b' : '1px solid #e2e8f0',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div>
+              <p style={{ margin: 0, fontSize: '13px', color: '#64748b', fontWeight: '600' }}>⏸️ Auto Punch OFF</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: '700', color: '#475569' }}>
+                {autoPunchOffCount}
+              </p>
+            </div>
+            <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '10px', color: '#64748b' }}>
+              <FaTimesCircle style={{ fontSize: '22px' }} />
+            </div>
+          </div>
+        </div>
+
         {/* Filters */}
         <div className="filters-container">
           <div className="filter-group">
@@ -298,6 +421,19 @@ const SiteEmployees = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+          </div>
+          <div className="filter-group">
+            <label htmlFor="autoPunchFilter">Auto Punch</label>
+            <select
+              id="autoPunchFilter"
+              className="form-input"
+              value={autoPunchFilter}
+              onChange={(e) => setAutoPunchFilter(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="enabled">Auto Punch ON</option>
+              <option value="disabled">Auto Punch OFF</option>
+            </select>
           </div>
           <div className="filter-group">
             <label htmlFor="isWorking">Status</label>
@@ -403,7 +539,83 @@ const SiteEmployees = () => {
               <p>No employees found for this site.</p>
             </div>
           ) : (
-            <div className="table-container">
+            <>
+              {/* Mobile Card View */}
+              <div className="mobile-cards-view mobile-only">
+                {filteredEmployees.map((employee) => (
+                  <div key={employee._id} className="mobile-card">
+                    <div className="card-header">
+                      <div className="employee-card-header">
+                        <div className="employee-card-photo" style={{ background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {getImageUrl(employee.image) ? (
+                            <img src={getImageUrl(employee.image)} alt={employee.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <FaUser style={{ width: '28px', height: '28px', color: '#9ca3af' }} />
+                          )}
+                        </div>
+                        <div className="employee-card-info">
+                          <h3 className="card-title">{employee.name || 'N/A'}</h3>
+                          <p className="card-subtitle">{employee.email || 'N/A'}</p>
+                        </div>
+                      </div>
+                      {!isReadonlyAdminWithSite && (
+                        <div className="card-actions">
+                          <button
+                            className="card-action-btn edit"
+                            onClick={() => handleEditEmployee(employee)}
+                            title="Edit"
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            className="card-action-btn delete"
+                            onClick={() => handleDelete(employee._id)}
+                            title="Delete"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="card-body">
+                      <div className="card-row">
+                        <span className="card-label">Auto Punch</span>
+                        <span className="card-value">
+                          <ToggleSwitch
+                            checked={employee.autoPunchEnabled !== false}
+                            onChange={() => handleToggleAutoPunch(employee._id, employee.autoPunchEnabled !== false)}
+                          />
+                        </span>
+                      </div>
+                      <div className="card-row">
+                        <span className="card-label">Mobile</span>
+                        <span className="card-value">{employee.mobile || 'N/A'}</span>
+                      </div>
+                      <div className="card-row">
+                        <span className="card-label">Address</span>
+                        <span className="card-value">{employee.address || 'N/A'}</span>
+                      </div>
+                      <div className="card-row">
+                        <span className="card-label">Shift</span>
+                        <span className="card-value" style={{ textTransform: 'capitalize' }}>{employee.shift || 'N/A'}</span>
+                      </div>
+                      <div className="card-row">
+                        <span className="card-label">Manager</span>
+                        <span className="card-value">{employee.managerId?.name || 'Unassigned'}</span>
+                      </div>
+                      <div className="card-row">
+                        <span className="card-label">Status</span>
+                        <span className={`card-status ${employee.isWorking ? 'status-active' : 'status-inactive'}`}>
+                          {employee.isWorking ? 'Working' : 'Not Working'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="table-container desktop-only">
               {selectedEmployees.size > 0 && !isReadonlyAdminWithSite && (
                 <div style={{ 
                   padding: '12px', 
@@ -418,6 +630,20 @@ const SiteEmployees = () => {
                     {selectedEmployees.size} employee(s) selected
                   </span>
                   <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      className="btn-secondary" 
+                      onClick={() => handleBulkAutoPunch(true)}
+                      style={{ background: '#059669', color: 'white', border: 'none' }}
+                    >
+                      Enable Auto Punch
+                    </button>
+                    <button 
+                      className="btn-secondary" 
+                      onClick={() => handleBulkAutoPunch(false)}
+                      style={{ background: '#4b5563', color: 'white', border: 'none' }}
+                    >
+                      Disable Auto Punch
+                    </button>
                     <button 
                       className="btn-secondary" 
                       onClick={() => setSelectedEmployees(new Set())}
@@ -454,6 +680,7 @@ const SiteEmployees = () => {
                     <th>Address</th>
                     <th>Shift</th>
                     <th>Manager</th>
+                    <th>Auto Punch</th>
                     <th>Status</th>
                     {!isReadonlyAdminWithSite && <th>Actions</th>}
                   </tr>
@@ -493,6 +720,12 @@ const SiteEmployees = () => {
                         </span>
                       </td>
                       <td>{employee.managerId?.name || 'N/A'}</td>
+                      <td>
+                        <ToggleSwitch
+                          checked={employee.autoPunchEnabled !== false}
+                          onChange={() => handleToggleAutoPunch(employee._id, employee.autoPunchEnabled !== false)}
+                        />
+                      </td>
                       <td>
                         <span className={`status-badge ${employee.isWorking ? 'status-active' : 'status-inactive'}`}>
                           {employee.isWorking ? 'Working' : 'Not Working'}

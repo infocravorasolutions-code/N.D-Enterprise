@@ -1,6 +1,7 @@
 
 import Attendance from "../models/attendence.models.js";
 import Employee from "../models/employee.models.js";
+import Site from "../models/site.models.js";
 import { getCurrentISTTime, getHoursAgoInIST, getCurrentISTHour } from "../utils/timeUtils.js";
 
 // Function to get shift end time based on shift type and clock-in time (in IST)
@@ -62,27 +63,22 @@ const getShiftEndTime = (clockInTime, shift) => {
 export const autoStepOut = async () => {
   console.log("Running auto-step-out check...");
 
-  // ============================================
-  // TEMPORARY TEST MODE - Set to true to step out ALL employees every 5 minutes
-  // Set to false for production (normal shift-based auto step-out)
-  // ============================================
   const TEST_MODE_STEP_OUT_ALL = false; // Production mode: shift-based auto step-out
-  // ============================================
 
   const now = getCurrentISTTime();
   
   try {
     // Find all open attendance records (both global and site-specific)
-    // Don't populate employeeId initially to get raw siteId from attendance record
     const openRecords = await Attendance.find({
       stepOut: null
     });
 
     console.log(`Found ${openRecords.length} open attendance records`);
     
-    if (TEST_MODE_STEP_OUT_ALL) {
-      console.log("⚠️  TEST MODE ENABLED: Stepping out ALL employees regardless of shift end time");
-    }
+    // Pre-fetch active sites to annotate site step-out address
+    const activeSites = await Site.find({});
+    const siteMap = new Map();
+    activeSites.forEach(s => siteMap.set(s._id.toString(), s));
 
     let steppedOutCount = 0;
     let skippedCount = 0;
@@ -92,7 +88,6 @@ export const autoStepOut = async () => {
 
     for (const attendance of openRecords) {
       try {
-        // Get employee ID (handle both populated and unpopulated cases)
         const employeeId = attendance.employeeId?._id || attendance.employeeId;
         
         if (!employeeId) {
@@ -101,51 +96,24 @@ export const autoStepOut = async () => {
           continue;
         }
 
-        // Get siteId from attendance record (this is the key for site employees)
-        const attendanceSiteId = attendance.siteId;
-        const isSiteAttendance = attendanceSiteId !== null && attendanceSiteId !== undefined;
+        const attendanceSiteId = attendance.siteId ? attendance.siteId.toString() : null;
+        const isSiteAttendance = Boolean(attendanceSiteId);
+        const site = isSiteAttendance ? siteMap.get(attendanceSiteId) : null;
 
-        // Get employee shift (from attendance record or fetch from employee)
         let shift = attendance.shift;
-        
-        // If shift not in attendance record, fetch from employee
         if (!shift) {
           const employee = await Employee.findById(employeeId).select('shift siteId');
           shift = employee?.shift || 'morning';
-          
-          // Log if there's a mismatch between employee siteId and attendance siteId
-          if (employee?.siteId && !attendanceSiteId) {
-            console.log(`Warning: Employee ${employeeId} has siteId ${employee.siteId} but attendance record ${attendance._id} has no siteId`);
-          } else if (!employee?.siteId && attendanceSiteId) {
-            console.log(`Warning: Attendance record ${attendance._id} has siteId ${attendanceSiteId} but employee ${employeeId} has no siteId`);
-          }
         }
         
-        // In TEST MODE: Step out all employees immediately
-        // In PRODUCTION: Check shift end time
         let shouldStepOut = false;
         
         if (TEST_MODE_STEP_OUT_ALL) {
-          // TEST MODE: Step out everyone
           shouldStepOut = true;
-          console.log(`[TEST MODE] Stepping out employee ${employeeId} ${isSiteAttendance ? `[Site: ${attendanceSiteId}]` : '[Global]'}`);
         } else {
-          // PRODUCTION MODE: Calculate shift end time based on shift type (in IST)
           const shiftEndTime = getShiftEndTime(attendance.stepIn, shift);
-          
-          // Add a 15-minute buffer after shift end time before auto clock-out
-          const autoClockOutTime = new Date(shiftEndTime.getTime() + 15 * 60 * 1000); // 15 minutes after shift end
-          
-          // Debug logging for site employees
-          if (isSiteAttendance) {
-            const stepInIST = new Date(attendance.stepIn).toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-            const shiftEndIST = shiftEndTime.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-            const autoClockOutIST = autoClockOutTime.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-            const nowIST = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-            console.log(`[Site Employee ${employeeId}] Shift: ${shift}, StepIn (IST): ${stepInIST}, ShiftEnd (IST): ${shiftEndIST}, AutoClockOut (IST): ${autoClockOutIST}, Now (IST): ${nowIST}`);
-          }
-          
-          // Check if current time has passed the auto clock-out time
+          // 15-minute buffer after shift end time before auto clock-out
+          const autoClockOutTime = new Date(shiftEndTime.getTime() + 15 * 60 * 1000);
           shouldStepOut = now >= autoClockOutTime;
         }
         
@@ -153,49 +121,40 @@ export const autoStepOut = async () => {
           const stepOutTime = getCurrentISTTime();
           const totalTime = Math.round((stepOutTime - attendance.stepIn) / 60000); // in minutes
 
-          // Update attendance record
           attendance.stepOut = stepOutTime;
           attendance.totalTime = totalTime;
-          if (TEST_MODE_STEP_OUT_ALL) {
-            attendance.note = `[TEST MODE] Auto stepped out - testing cron job functionality`;
+
+          if (isSiteAttendance && site) {
+            attendance.stepOutAddress = site.name;
+            attendance.note = attendance.note || `Auto stepped out after ${shift} shift at site "${site.name}"`;
           } else {
             attendance.note = attendance.note || `Auto stepped out after ${shift} shift end time`;
           }
+
           await attendance.save();
 
-          // Update employee working status only if this is the only open attendance for this employee
-          // Check if there are other open attendance records for this employee
+          // Update employee working status if no other open attendance records exist
           const otherOpenAttendance = await Attendance.findOne({
             employeeId: employeeId,
             _id: { $ne: attendance._id },
             stepOut: null
           });
 
-          // Only update isWorking to false if there are no other open attendance records
           if (!otherOpenAttendance) {
             await Employee.findByIdAndUpdate(employeeId, { isWorking: false });
-          } else {
-            console.log(`Employee ${employeeId} has other open attendance records. Keeping isWorking: true`);
           }
 
           steppedOutCount++;
           if (isSiteAttendance) {
             siteCount++;
-            console.log(`Auto-stepped out: Employee ${employeeId} [Site: ${attendanceSiteId}] for ${shift} shift`);
+            console.log(`Auto-stepped out: Employee ${employeeId} [Site: ${site?.name || attendanceSiteId}] for ${shift} shift`);
           } else {
             globalCount++;
             console.log(`Auto-stepped out: Employee ${employeeId} [Global] for ${shift} shift`);
           }
         } else {
-          // Only log "shift not ended" in production mode (not test mode)
           if (!TEST_MODE_STEP_OUT_ALL) {
             skippedCount++;
-            // Calculate shift end time for logging
-            const shiftEndTime = getShiftEndTime(attendance.stepIn, shift);
-            const autoClockOutTime = new Date(shiftEndTime.getTime() + 15 * 60 * 1000);
-            const timeRemaining = Math.round((autoClockOutTime - now) / 60000); // minutes
-            const employeeType = isSiteAttendance ? `[Site: ${attendanceSiteId}]` : '[Global]';
-            console.log(`Employee ${employeeId} ${employeeType} shift not ended yet. ${timeRemaining} minutes remaining.`);
           }
         }
       } catch (error) {
@@ -205,23 +164,18 @@ export const autoStepOut = async () => {
     }
 
     console.log(`Auto step-out completed:`);
-    if (TEST_MODE_STEP_OUT_ALL) {
-      console.log(`⚠️  TEST MODE: All employees stepped out for testing`);
-    }
     console.log(`- Stepped out: ${steppedOutCount} (Global: ${globalCount}, Site: ${siteCount})`);
-    if (!TEST_MODE_STEP_OUT_ALL) {
-      console.log(`- Skipped (shift not ended): ${skippedCount}`);
-    }
+    console.log(`- Skipped: ${skippedCount}`);
     console.log(`- Errors: ${errorCount}`);
     console.log(`- Total processed: ${openRecords.length}`);
 
   } catch (error) {
     console.error("Auto step-out failed:", error);
   }
-}
+};
 
 // Run every 1 hour - Auto step-in at shift start times (7 AM, 3 PM, 11 PM)
-export const autoStepIn = async () => {
+export const autoStepIn = async (forcedShift = null) => {
   console.log("Running auto-step-in check...");
 
   const now = getCurrentISTTime();
@@ -234,17 +188,16 @@ export const autoStepIn = async () => {
     23: 'night'     // 11 PM (23:00)
   };
 
-  // Check if current hour matches any shift start time
-  const currentShift = shiftStartTimes[currentHour];
+  const currentShift = forcedShift ? forcedShift.toLowerCase() : shiftStartTimes[currentHour];
   
   if (!currentShift) {
     console.log(`Current hour (${currentHour}) is not a shift start time. Skipping auto step-in.`);
     return;
   }
 
-  console.log(`Shift start detected: ${currentShift} shift at ${currentHour}:00`);
+  console.log(`Shift start detected: ${currentShift} shift ${forcedShift ? '(forced mode)' : `at ${currentHour}:00`}`);
 
-  // Random locations for auto step-in
+  // Random fallback locations for global employees
   const randomLocations = [
     "Gujari bajar",
     "Dhobi Ghat",
@@ -253,12 +206,15 @@ export const autoStepIn = async () => {
   ];
 
   try {
-    // Get start of today in IST for duplicate checking
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
-    
+
+    // Pre-fetch all active sites to map site names and verify active status
+    const activeSites = await Site.find({ status: 'active', isActive: { $ne: false } });
+    const activeSiteMap = new Map();
+    activeSites.forEach(s => activeSiteMap.set(s._id.toString(), s));
+
     // Find ALL employees assigned to this shift who are not currently working
-    // This includes both global employees (siteId: null) and site employees (siteId exists)
     const employees = await Employee.find({
       shift: currentShift,
       isWorking: false
@@ -273,66 +229,70 @@ export const autoStepIn = async () => {
 
     for (const employee of employees) {
       try {
-        // Determine if this is a global or site employee
-        const isSiteEmployee = employee.siteId !== null && employee.siteId !== undefined;
-        const employeeSiteId = isSiteEmployee ? employee.siteId : null;
+        const isSiteEmployee = Boolean(employee.siteId);
+        const employeeSiteId = isSiteEmployee ? employee.siteId.toString() : null;
+
+        let stepInAddress = "";
+
+        if (isSiteEmployee) {
+          const site = activeSiteMap.get(employeeSiteId);
+          // If site is not active or cancelled, skip auto step-in for this employee
+          if (!site) {
+            console.log(`Site ${employeeSiteId} for employee ${employee.name} is not active. Skipping.`);
+            skippedCount++;
+            continue;
+          }
+          stepInAddress = site.name;
+        } else {
+          stepInAddress = randomLocations[Math.floor(Math.random() * randomLocations.length)];
+        }
 
         // Check if employee already has an open attendance record
-        // For global employees: check only global attendance (siteId: null)
-        // For site employees: check attendance for their specific site
         const openAttendance = await Attendance.findOne({
           employeeId: employee._id,
-          stepOut: null,
-          siteId: employeeSiteId // Match the employee's siteId (null for global, actual siteId for site employees)
+          stepOut: null
         });
 
         if (openAttendance) {
-          const employeeType = isSiteEmployee ? `Site (${employeeSiteId})` : 'Global';
+          const employeeType = isSiteEmployee ? `Site (${stepInAddress})` : 'Global';
           console.log(`Employee ${employee.name} (${employee._id}) [${employeeType}] already has open attendance. Skipping.`);
           skippedCount++;
           continue;
         }
 
         // Check if employee was already auto-stepped-in today for this shift
-        // For global employees: check only global attendance (siteId: null)
-        // For site employees: check attendance for their specific site
         const todayAttendance = await Attendance.findOne({
           employeeId: employee._id,
           shift: currentShift,
-          siteId: employeeSiteId, // Match the employee's siteId
           stepIn: { $gte: todayStart },
           note: { $regex: /Auto stepped in/i }
         });
 
         if (todayAttendance) {
-          const employeeType = isSiteEmployee ? `Site (${employeeSiteId})` : 'Global';
+          const employeeType = isSiteEmployee ? `Site (${stepInAddress})` : 'Global';
           console.log(`Employee ${employee.name} (${employee._id}) [${employeeType}] already auto-stepped-in today for ${currentShift} shift. Skipping.`);
           skippedCount++;
           continue;
         }
 
-        // Get random location for this employee
-        const randomLocation = randomLocations[Math.floor(Math.random() * randomLocations.length)];
-
         // Create attendance record
-        // For global employees: siteId will be null
-        // For site employees: siteId will be their assigned siteId
         const stepIn = getCurrentISTTime();
         const attendance = new Attendance({
           employeeId: employee._id,
-          managerId: employee.managerId, // Use employee's managerId so managers can see them
+          managerId: employee.managerId,
           stepIn,
-          stepInImage: null, // No image for auto step-in
-          stepInLongitude: 0, // Default coordinates
+          stepInImage: null,
+          stepInLongitude: 0,
           stepInLatitude: 0,
-          stepInAddress: randomLocation,
-          // Keep legacy fields for backward compatibility
+          stepInAddress: stepInAddress,
           longitude: 0,
           latitude: 0,
-          address: randomLocation,
-          note: `Auto stepped in for ${currentShift} shift`,
+          address: stepInAddress,
+          note: isSiteEmployee 
+            ? `Auto stepped in for ${currentShift} shift at site "${stepInAddress}"` 
+            : `Auto stepped in for ${currentShift} shift`,
           shift: currentShift,
-          siteId: employeeSiteId // Set siteId: null for global employees, actual siteId for site employees
+          siteId: isSiteEmployee ? employee.siteId : null
         });
 
         await attendance.save();
@@ -343,10 +303,10 @@ export const autoStepIn = async () => {
         steppedInCount++;
         if (isSiteEmployee) {
           siteCount++;
-          console.log(`Auto-stepped in: ${employee.name} (${employee._id}) [Site: ${employeeSiteId}] for ${currentShift} shift at ${randomLocation}`);
+          console.log(`Auto-stepped in: ${employee.name} (${employee._id}) [Site: ${stepInAddress}] for ${currentShift} shift`);
         } else {
           globalCount++;
-          console.log(`Auto-stepped in: ${employee.name} (${employee._id}) [Global] for ${currentShift} shift at ${randomLocation}`);
+          console.log(`Auto-stepped in: ${employee.name} (${employee._id}) [Global] for ${currentShift} shift at ${stepInAddress}`);
         }
       } catch (error) {
         console.error(`Error processing employee ${employee.name} (${employee._id}):`, error);
@@ -361,4 +321,4 @@ export const autoStepIn = async () => {
   } catch (error) {
     console.error("Auto step-in failed:", error);
   }
-}
+};

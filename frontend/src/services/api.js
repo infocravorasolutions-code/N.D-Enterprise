@@ -137,6 +137,34 @@ export const employeeAPI = {
       body: JSON.stringify({ employeeIds }),
     });
   },
+  
+  // Toggle auto punch status for employee
+  toggleAutoPunch: (id, autoPunchEnabled) => {
+    return apiCall(`/employee/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ autoPunchEnabled }),
+    });
+  },
+  
+  // Bulk toggle auto punch status for employees
+  bulkToggleAutoPunch: async (employeeIds, autoPunchEnabled) => {
+    try {
+      return await apiCall('/employee/bulk-auto-punch', {
+        method: 'POST',
+        body: JSON.stringify({ employeeIds, autoPunchEnabled }),
+      });
+    } catch (err) {
+      // Fallback for live production before backend redeploy: update each employee via standard PUT
+      const promises = employeeIds.map(id => 
+        apiCall(`/employee/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ autoPunchEnabled }),
+        })
+      );
+      await Promise.all(promises);
+      return { message: `Updated ${employeeIds.length} employees` };
+    }
+  },
 };
 
 // Manager/Supervisor APIs

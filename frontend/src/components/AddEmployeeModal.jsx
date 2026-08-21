@@ -21,11 +21,9 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false
 
   useEffect(() => {
     if (isOpen) {
-      // Only fetch managers if not a manager (managers can't assign to other managers)
       if (!isManager) {
         fetchManagers()
       }
-      // If editing, populate form with employee data
       if (employee) {
         setFormData({
           fullName: employee.name || '',
@@ -34,9 +32,9 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false
           shift: employee.shift || '',
           address: employee.address || '',
           mobile: employee.mobile || '',
+          autoPunchEnabled: employee.autoPunchEnabled !== false,
           photo: null
         })
-        // Set existing photo URL if available
         if (employee.image) {
           const imageUrl = getStaticUrl(employee.image)
           setExistingPhotoUrl(imageUrl)
@@ -44,7 +42,6 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false
           setExistingPhotoUrl(null)
         }
       } else {
-        // Reset form for new employee
         setFormData({
           fullName: '',
           email: '',
@@ -52,6 +49,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false
           shift: '',
           address: '',
           mobile: '',
+          autoPunchEnabled: siteId ? true : false,
           photo: null
         })
         setExistingPhotoUrl(null)
@@ -278,6 +276,19 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false
               maxLength="10"
               required
             />
+          </div>
+
+          <div className="form-row" style={{ marginTop: '12px', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', margin: 0, fontSize: '14px', fontWeight: '500', color: '#1e293b' }}>
+              <input
+                type="checkbox"
+                name="autoPunchEnabled"
+                checked={formData.autoPunchEnabled !== false}
+                onChange={(e) => setFormData(prev => ({ ...prev, autoPunchEnabled: e.target.checked }))}
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981' }}
+              />
+              <span>Enable Auto Punch (Auto Step-In / Auto Step-Out)</span>
+            </label>
           </div>
         </div>
 

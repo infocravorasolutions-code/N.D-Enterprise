@@ -12,7 +12,9 @@ import{
     deleteEmployee,
     deleteMultipleEmployees,
     getEmployees,
-    createEmployeeByManager
+    createEmployeeByManager,
+    toggleAutoPunch,
+    bulkToggleAutoPunch
 } from "../controller/employee.controller.js"
 import { authenticateUser } from "../utils/middlewere.js";
 
@@ -47,6 +49,14 @@ router.post("/manager", authenticateUser, upload.single("image"), createEmployee
 
 // Bulk delete - must be before /:id route
 router.delete("/bulk-delete", authenticateUser, deleteMultipleEmployees)
+
+// Bulk toggle auto punch - must be before /:id route
+router.post("/bulk-auto-punch", authenticateUser, bulkToggleAutoPunch)
+
+// Toggle auto punch for single employee (support PUT, POST, and PATCH for compatibility)
+router.put("/:id/toggle-auto-punch", authenticateUser, toggleAutoPunch)
+router.post("/:id/toggle-auto-punch", authenticateUser, toggleAutoPunch)
+router.patch("/:id/toggle-auto-punch", authenticateUser, toggleAutoPunch)
 
 // Create employee (with optional image)
 router.post("/", authenticateUser, upload.single("image"), createEmployee);

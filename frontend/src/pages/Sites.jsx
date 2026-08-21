@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaUserTie, FaChartBar, FaEye, FaPlus, FaFilter } from 'react-icons/fa'
+import { FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaUserTie, FaChartBar, FaEye, FaPlus, FaFilter, FaTrash } from 'react-icons/fa'
 import { siteAPI } from '../services/api'
 import './Page.css'
 
@@ -37,6 +37,20 @@ const Sites = () => {
 
   const handleViewSite = (siteId) => {
     navigate(`/sites/${siteId}`)
+  }
+
+  const handleDeleteSite = async (e, siteId, siteName) => {
+    e.stopPropagation()
+    if (window.confirm(`Are you sure you want to delete "${siteName}"?\n\nAssociated employees and managers will be unassigned from this site.`)) {
+      try {
+        await siteAPI.delete(siteId)
+        setSites(prev => prev.filter(s => s._id !== siteId))
+        alert('Site deleted successfully!')
+      } catch (error) {
+        console.error('Error deleting site:', error)
+        alert(error.message || 'Failed to delete site.')
+      }
+    }
   }
 
   const formatDate = (dateString) => {
@@ -190,11 +204,50 @@ const Sites = () => {
                         {site.status?.charAt(0).toUpperCase() + site.status?.slice(1)}
                       </span>
                     </div>
-                    <FaEye style={{
-                      color: '#8b5cf6',
-                      fontSize: '20px',
-                      cursor: 'pointer'
-                    }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <FaEye 
+                        title="View Details"
+                        style={{
+                          color: '#8b5cf6',
+                          fontSize: '20px',
+                          cursor: 'pointer'
+                        }} 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleViewSite(site._id)
+                        }}
+                      />
+                      {isAdmin && (
+                        <button
+                          title="Delete Site"
+                          onClick={(e) => handleDeleteSite(e, site._id, site.name)}
+                          style={{
+                            background: '#fee2e2',
+                            color: '#ef4444',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#ef4444'
+                            e.currentTarget.style.color = '#ffffff'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#fee2e2'
+                            e.currentTarget.style.color = '#ef4444'
+                          }}
+                        >
+                          <FaTrash style={{ fontSize: '12px' }} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{

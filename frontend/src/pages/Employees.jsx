@@ -17,6 +17,7 @@ const Employees = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [selectedEmployees, setSelectedEmployees] = useState([])
+  const [autoPunchFilter, setAutoPunchFilter] = useState('') // '', 'enabled', 'disabled'
   
   // Get user type
   const userType = localStorage.getItem('userType') || 'admin'

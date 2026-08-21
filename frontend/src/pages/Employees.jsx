@@ -179,10 +179,15 @@ const Employees = () => {
     }
   }
 
-  const [autoPunchFilter, setAutoPunchFilter] = useState('') // '', 'enabled', 'disabled'
+  const isAutoPunchActive = (emp) => {
+    if (typeof emp.autoPunchEnabled === 'boolean') {
+      return emp.autoPunchEnabled
+    }
+    return emp.siteId ? true : false
+  }
 
-  const autoPunchOnCount = employees.filter(e => e.autoPunchEnabled !== false).length
-  const autoPunchOffCount = employees.filter(e => e.autoPunchEnabled === false).length
+  const autoPunchOnCount = employees.filter(e => isAutoPunchActive(e)).length
+  const autoPunchOffCount = employees.filter(e => !isAutoPunchActive(e)).length
 
   const filteredEmployees = employees.filter(emp => {
     // Search query filter
@@ -197,8 +202,8 @@ const Employees = () => {
     }
 
     // Auto punch filter
-    if (autoPunchFilter === 'enabled' && emp.autoPunchEnabled === false) return false
-    if (autoPunchFilter === 'disabled' && emp.autoPunchEnabled !== false) return false
+    if (autoPunchFilter === 'enabled' && !isAutoPunchActive(emp)) return false
+    if (autoPunchFilter === 'disabled' && isAutoPunchActive(emp)) return false
 
     return true
   })
@@ -443,8 +448,8 @@ const Employees = () => {
                       <td>{employee.managerId?.name || '-'}</td>
                       <td>
                         <ToggleSwitch
-                          checked={employee.autoPunchEnabled !== false}
-                          onChange={(newVal) => handleToggleAutoPunch(employee._id, employee.autoPunchEnabled !== false)}
+                          checked={isAutoPunchActive(employee)}
+                          onChange={() => handleToggleAutoPunch(employee._id, isAutoPunchActive(employee))}
                         />
                       </td>
                       <td>
@@ -521,8 +526,8 @@ const Employees = () => {
                       <span className="card-label">Auto Punch</span>
                       <span className="card-value">
                         <ToggleSwitch
-                          checked={employee.autoPunchEnabled !== false}
-                          onChange={(newVal) => handleToggleAutoPunch(employee._id, employee.autoPunchEnabled !== false)}
+                          checked={isAutoPunchActive(employee)}
+                          onChange={() => handleToggleAutoPunch(employee._id, isAutoPunchActive(employee))}
                         />
                       </span>
                     </div>

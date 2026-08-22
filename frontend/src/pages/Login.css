@@ -169,6 +169,11 @@
   box-sizing: border-box;
 }
 
+.input-wrapper .form-input {
+  padding-left: 44px;
+  padding-right: 44px;
+}
+
 .form-input:focus {
   outline: none;
   border-color: #8b5cf6;
@@ -259,6 +264,11 @@
     width: 40px;
     height: 40px;
     font-size: 20px;
+  }
+
+  .input-wrapper .form-input {
+    padding-left: 44px;
+    padding-right: 44px;
   }
 }
 

@@ -40,15 +40,18 @@ const isOriginAllowed = (origin) => {
   return false;
 };
 
-// Explicit OPTIONS handler - some proxies return 502 if OPTIONS isn't handled early.
-app.options('*', (req, res) => {
-  const origin = req.headers.origin;
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  res.sendStatus(204);
+// Explicit OPTIONS middleware - handles preflight OPTIONS requests without path-to-regexp issues
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    const origin = req.headers.origin;
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    return res.sendStatus(204);
+  }
+  next();
 });
 
 app.use(cors({

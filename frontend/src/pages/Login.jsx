@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa'
 import { adminAPI, managerAPI, setToken } from '../services/api'
 import { isAuthenticated } from '../services/auth'
@@ -172,7 +172,7 @@ const Login = () => {
         </form>
 
         <div className="login-footer">
-          <p>© 2026 ND Enterprise. All rights reserved.</p>
+          <p>© 2026 ND Enterprise. All rights reserved. • <Link to="/privacy" className="privacy-link">Privacy Policy</Link></p>
         </div>
       </div>
     </div>

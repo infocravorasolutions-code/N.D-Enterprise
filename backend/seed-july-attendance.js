@@ -231,14 +231,33 @@ const seedAttendance = async () => {
               continue;
             }
 
-            const stepInDate = new Date(`${dateStr}T09:00:00+05:30`);
-            const stepOutDate = new Date(`${dateStr}T17:00:00+05:30`);
+            // Calculate realistic randomized shift timings
+            const empShift = (emp.shift || 'morning').toLowerCase();
+            const randMin = String(Math.floor(Math.random() * 31)).padStart(2, '0');
+            const randSec = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+
+            let stepInStr = '';
+            if (empShift === 'morning') {
+              // 07:00 AM to 07:30 AM
+              stepInStr = `${dateStr}T07:${randMin}:${randSec}+05:30`;
+            } else if (empShift === 'evening') {
+              // 03:00 PM to 03:30 PM
+              stepInStr = `${dateStr}T15:${randMin}:${randSec}+05:30`;
+            } else if (empShift === 'night') {
+              // 11:00 PM to 11:30 PM
+              stepInStr = `${dateStr}T23:${randMin}:${randSec}+05:30`;
+            } else {
+              stepInStr = `${dateStr}T07:${randMin}:${randSec}+05:30`;
+            }
+
+            const stepInDate = new Date(stepInStr);
+            const stepOutDate = new Date(stepInDate.getTime() + 8 * 3600 * 1000);
 
             newAttendanceDocs.push({
               employeeId: emp._id,
               managerId: emp.managerId || manager._id,
               siteId: site._id,
-              shift: emp.shift || 'morning',
+              shift: empShift,
               stepIn: stepInDate,
               stepOut: stepOutDate,
               totalTime: 480,

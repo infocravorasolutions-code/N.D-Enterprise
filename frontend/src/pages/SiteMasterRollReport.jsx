@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { FaSync, FaFilePdf, FaFileExcel, FaArrowLeft } from 'react-icons/fa'
 import { siteAPI, employeeAPI, attendanceAPI } from '../services/api'
+import Pagination from '../components/Pagination'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
@@ -9,6 +10,7 @@ import logoImage from '../images/Logo.jpg'
 import './Page.css'
 
 const SiteMasterRollReport = () => {
+  const tableContainerRef = useRef(null)
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
@@ -20,6 +22,8 @@ const SiteMasterRollReport = () => {
   const [employees, setEmployees] = useState([])
   const [site, setSite] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(25)
   const [summary, setSummary] = useState({
     totalPresentDays: 0,
     totalEmployees: 0,
@@ -44,6 +48,9 @@ const SiteMasterRollReport = () => {
   useEffect(() => {
     if (month && year) {
       fetchMusterRollData()
+    }
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollLeft = 0
     }
   }, [month, year, fromDate, toDate, id])
 
@@ -118,34 +125,34 @@ const SiteMasterRollReport = () => {
     // Group attendance by employee
     const employeeAttendanceMap = {}
     
-    // Create a map of employees by ID for faster lookup
-    const employeeMap = {}
+    // 1. Initialize entry for EVERY employee assigned to this site
     employeesList.forEach(emp => {
       const empIdStr = String(emp._id || emp.id)
-      employeeMap[empIdStr] = emp
+      employeeAttendanceMap[empIdStr] = {
+        employeeId: empIdStr,
+        name: emp.name || 'Unknown',
+        designation: emp.designation || 'N/A',
+        shift: emp.shift || 'N/A',
+        attendance: {}
+      }
     })
     
+    // 2. Attach site attendance records
     attendanceRecords.forEach(record => {
-      // Handle both populated and unpopulated employeeId
       let empId = null
       let employee = null
       
       if (record.employeeId) {
         if (typeof record.employeeId === 'object' && record.employeeId._id) {
-          // Populated employeeId
           empId = String(record.employeeId._id)
-          employee = record.employeeId // Use populated data directly
+          employee = record.employeeId
         } else {
-          // Unpopulated employeeId (just the ID)
           empId = String(record.employeeId)
-          employee = employeeMap[empId]
+          employee = employeeAttendanceMap[empId]
         }
       }
       
-      if (!empId) {
-        console.warn('Attendance record missing employeeId:', record)
-        return // Skip records without employeeId
-      }
+      if (!empId) return
       
       if (!employeeAttendanceMap[empId]) {
         employeeAttendanceMap[empId] = {
@@ -642,7 +649,7 @@ const SiteMasterRollReport = () => {
 
         {/* Muster Roll Table */}
         <div className="content-section">
-          <div className="table-container">
+          <div className="table-container" ref={tableContainerRef}>
             <table className="data-table muster-table">
               <thead>
                 <tr>
@@ -672,18 +679,23 @@ const SiteMasterRollReport = () => {
                     <td colSpan={getDaysInMonth() + 5} className="empty-state">No attendance data found</td>
                   </tr>
                 ) : (
-                  <>
+                  <React.Fragment>
                     {filteredData.map((emp, index) => (
-                      <tr key={emp.employeeId}>
+                      <tr key={emp.employeeId || index}>
                         <td className="sticky-col">{index + 1}</td>
-                        <td className="sticky-col">{emp.name}</td>
-                        <td className="sticky-col">{emp.designation}</td>
-                        <td className="sticky-col">{emp.shift}</td>
+                        <td className="sticky-col" style={{ fontWeight: '600', color: '#1e293b' }}>{emp.name}</td>
+                        <td className="sticky-col" style={{ color: '#64748b' }}>{emp.designation}</td>
+                        <td className="sticky-col" style={{ textTransform: 'capitalize', color: '#64748b' }}>{emp.shift}</td>
                         {Object.entries(emp.attendance).map(([day, att]) => (
                           <td key={day} className="attendance-cell">
-                            {att.status === 'P' ? (
-                              <div className="attendance-content">
-                                <div className="attendance-status">{att.status}</div>
+                            {att.status ? (
+                              <div 
+                                className="attendance-content"
+                                title={`${att.status === 'P' ? 'Present' : att.status === 'A' ? 'Absent' : 'Week Off'}${att.stepIn ? ` | In: ${att.stepIn}` : ''}${att.stepOut ? ` | Out: ${att.stepOut}` : ''}`}
+                              >
+                                <div className={`attendance-badge status-${att.status.toLowerCase()}`}>
+                                  {att.status}
+                                </div>
                                 {att.stepIn && (
                                   <div className="attendance-step-in">{att.stepIn}</div>
                                 )}
@@ -696,7 +708,7 @@ const SiteMasterRollReport = () => {
                             )}
                           </td>
                         ))}
-                        <td className="sticky-col total-col" style={{ fontWeight: 'bold', background: '#f9fafb' }}>
+                        <td className="sticky-col total-col" style={{ fontWeight: 'bold', background: '#f9fafb', color: '#1e40af' }}>
                           {rowTotals[index] || 0}
                         </td>
                       </tr>
@@ -717,7 +729,7 @@ const SiteMasterRollReport = () => {
                         {grandTotal}
                       </td>
                     </tr>
-                  </>
+                  </React.Fragment>
                 )}
               </tbody>
             </table>

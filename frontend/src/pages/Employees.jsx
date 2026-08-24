@@ -3,7 +3,7 @@ import { FaSearch, FaEdit, FaTrash, FaUser, FaUsers, FaCheckCircle, FaTimesCircl
 import AddEmployeeModal from '../components/AddEmployeeModal'
 import Pagination from '../components/Pagination'
 import ToggleSwitch from '../components/ToggleSwitch'
-import { employeeAPI } from '../services/api'
+import { employeeAPI, siteAPI } from '../services/api'
 import { getStaticUrl } from '../config'
 import './Page.css'
 
@@ -12,26 +12,45 @@ const Employees = () => {
   const [editingEmployee, setEditingEmployee] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [employees, setEmployees] = useState([])
+  const [sites, setSites] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [selectedEmployees, setSelectedEmployees] = useState([])
   const [autoPunchFilter, setAutoPunchFilter] = useState('') // '', 'enabled', 'disabled'
-  
+  const [siteFilter, setSiteFilter] = useState('') // '', 'unassigned', or siteId
+  const [shiftFilter, setShiftFilter] = useState('') // '', 'morning', 'evening', 'night'
+  const [statusFilter, setStatusFilter] = useState('') // '', 'working', 'off'
+
   // Get user type
   const userType = localStorage.getItem('userType') || 'admin'
   const isManager = userType === 'manager'
 
   useEffect(() => {
     fetchEmployees()
-  }, [])
+    fetchSites()
+  }, [siteFilter])
+
+  const fetchSites = async () => {
+    try {
+      const response = await siteAPI.getAll()
+      const siteList = Array.isArray(response) ? response : (response?.data || [])
+      setSites(siteList)
+    } catch (err) {
+      console.error('Error fetching sites:', err)
+    }
+  }
 
   const fetchEmployees = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await employeeAPI.getAll()
+      const params = {}
+      if (siteFilter) {
+        params.siteId = siteFilter
+      }
+      const response = await employeeAPI.getAll(params)
       console.log('Employees API Response:', response)
       
       // Handle different response structures
@@ -197,10 +216,18 @@ const Employees = () => {
       const matchesSearch = (
         emp.name?.toLowerCase().includes(query) ||
         emp.email?.toLowerCase().includes(query) ||
-        emp.shift?.toLowerCase().includes(query)
+        emp.shift?.toLowerCase().includes(query) ||
+        (typeof emp.siteId === 'object' && emp.siteId?.name?.toLowerCase().includes(query))
       )
       if (!matchesSearch) return false
     }
+
+    // Shift filter
+    if (shiftFilter && emp.shift?.toLowerCase() !== shiftFilter.toLowerCase()) return false
+
+    // Status filter
+    if (statusFilter === 'working' && !emp.isWorking) return false
+    if (statusFilter === 'off' && emp.isWorking) return false
 
     // Auto punch filter
     if (autoPunchFilter === 'enabled' && !isAutoPunchActive(emp)) return false
@@ -220,7 +247,7 @@ const Employees = () => {
   useEffect(() => {
     setCurrentPage(1)
     setSelectedEmployees([])
-  }, [searchQuery, autoPunchFilter])
+  }, [searchQuery, autoPunchFilter, siteFilter, shiftFilter, statusFilter])
 
   // Clear selections when page changes
   useEffect(() => {
@@ -372,11 +399,48 @@ const Employees = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <FaFilter style={{ color: '#64748b', fontSize: '14px' }} />
+              {/* Site Filter */}
               <select
                 className="form-input"
-                style={{ width: '180px', margin: 0 }}
+                style={{ width: '160px', margin: 0 }}
+                value={siteFilter}
+                onChange={(e) => setSiteFilter(e.target.value)}
+              >
+                <option value="">All Sites</option>
+                <option value="unassigned">Unassigned / Global</option>
+                {sites.map(site => (
+                  <option key={site._id} value={site._id}>{site.name}</option>
+                ))}
+              </select>
+              {/* Shift Filter */}
+              <select
+                className="form-input"
+                style={{ width: '140px', margin: 0 }}
+                value={shiftFilter}
+                onChange={(e) => setShiftFilter(e.target.value)}
+              >
+                <option value="">All Shifts</option>
+                <option value="morning">Morning</option>
+                <option value="evening">Evening</option>
+                <option value="night">Night</option>
+              </select>
+              {/* Status Filter */}
+              <select
+                className="form-input"
+                style={{ width: '140px', margin: 0 }}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="working">Active (Working)</option>
+                <option value="off">On Leave (Offline)</option>
+              </select>
+              {/* Auto Punch Filter */}
+              <select
+                className="form-input"
+                style={{ width: '150px', margin: 0 }}
                 value={autoPunchFilter}
                 onChange={(e) => setAutoPunchFilter(e.target.value)}
               >
@@ -400,8 +464,9 @@ const Employees = () => {
                   </th>
                   <th>Photo</th>
                   <th>Name</th>
-                  <th>ID</th>
+                  <th>Site</th>
                   <th>Email</th>
+                  <th>Shift</th>
                   <th>Assigned Manager</th>
                   <th>Auto Punch</th>
                   <th>Status</th>
@@ -411,17 +476,17 @@ const Employees = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="9" className="empty-state">Loading...</td>
+                    <td colSpan="10" className="empty-state">Loading...</td>
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan="9" className="empty-state" style={{ color: '#dc2626' }}>
+                    <td colSpan="10" className="empty-state" style={{ color: '#dc2626' }}>
                       {error}
                     </td>
                   </tr>
                 ) : filteredEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="empty-state">No employees found</td>
+                    <td colSpan="10" className="empty-state">No employees found</td>
                   </tr>
                 ) : (
                   paginatedEmployees.map((employee) => (
@@ -443,9 +508,18 @@ const Employees = () => {
                           )}
                         </div>
                       </td>
-                      <td>{employee.name}</td>
-                      <td className="text-mono">{employee._id?.substring(0, 12)}...</td>
+                      <td style={{ fontWeight: '600' }}>{employee.name}</td>
+                      <td>
+                        {employee.siteId?.name ? (
+                          <span className="status-badge" style={{ background: '#eff6ff', color: '#1e40af', fontWeight: '500' }}>
+                            {employee.siteId.name}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontSize: '13px' }}>Unassigned</span>
+                        )}
+                      </td>
                       <td>{employee.email || '-'}</td>
+                      <td style={{ textTransform: 'capitalize', fontWeight: '500' }}>{employee.shift || '-'}</td>
                       <td>{employee.managerId?.name || '-'}</td>
                       <td>
                         <ToggleSwitch
@@ -531,6 +605,10 @@ const Employees = () => {
                           onChange={() => handleToggleAutoPunch(employee._id, isAutoPunchActive(employee))}
                         />
                       </span>
+                    </div>
+                    <div className="card-row">
+                      <span className="card-label">Site</span>
+                      <span className="card-value">{employee.siteId?.name || 'Unassigned'}</span>
                     </div>
                     <div className="card-row">
                       <span className="card-label">Email</span>

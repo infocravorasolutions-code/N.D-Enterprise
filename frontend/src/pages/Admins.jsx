@@ -212,7 +212,7 @@ const Admins = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  {/* <th>ID</th> */}
                   <th>Name</th>
                   <th>Email</th>
                   <th>Role</th>
@@ -239,7 +239,7 @@ const Admins = () => {
                 ) : (
                   paginatedAdmins.map((admin) => (
                     <tr key={admin._id}>
-                      <td className="text-mono">{admin._id?.substring(0, 12)}...</td>
+                      {/* <td className="text-mono">{admin._id?.substring(0, 12)}...</td> */}
                       <td>{admin.name}</td>
                       <td>{admin.email}</td>
                       <td>
@@ -261,15 +261,15 @@ const Admins = () => {
                       </td>
                       <td>
                         <div className="action-buttons">
-                          <button 
-                            className="action-btn action-edit" 
+                          <button
+                            className="action-btn action-edit"
                             title="Edit"
                             onClick={() => handleEditAdmin(admin)}
                           >
                             <FaEdit />
                           </button>
-                          <button 
-                            className="action-btn action-delete" 
+                          <button
+                            className="action-btn action-delete"
                             title="Delete"
                             onClick={() => handleDelete(admin._id)}
                           >

@@ -27,12 +27,25 @@ import mongoose from "mongoose";
 
 export const createEmployee = async (req, res) => {
   try {
-    const { email, name, mobile, address, managerId, shift, createdBy, isCreatedByAdmin, siteId, autoPunchEnabled } = req.body;
+    let { email, name, mobile, address, managerId, shift, createdBy, isCreatedByAdmin, siteId, autoPunchEnabled } = req.body;
 
     console.log('[CREATE EMPLOYEE] Payload:', req.body);
 
-    if (!name || !address || !managerId || !shift || isCreatedByAdmin === undefined || createdBy === undefined) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!name || !shift) {
+      return res.status(400).json({ message: "Name and shift are required" });
+    }
+
+    // Default address if missing
+    if (!address) address = "Not Provided";
+
+    // If managerId is not provided or empty, assign first active manager or default
+    if (!managerId || managerId === '' || managerId === 'null') {
+      const defaultManager = await Manager.findOne({});
+      if (defaultManager) {
+        managerId = defaultManager._id;
+      } else {
+        return res.status(400).json({ message: "No manager found in system. Please create a manager first." });
+      }
     }
 
     let image = "";
@@ -47,14 +60,14 @@ export const createEmployee = async (req, res) => {
       : defaultAutoPunch;
 
     const newEmployee = new Employee({
-      email,
+      email: email || '',
       name,
-      mobile,
+      mobile: mobile || '',
       address,
       managerId,
       shift,
-      createdBy,
-      isCreatedByAdmin,
+      createdBy: createdBy || req.user?.id,
+      isCreatedByAdmin: isCreatedByAdmin !== undefined ? isCreatedByAdmin : true,
       image,
       siteId: finalSiteId,
       autoPunchEnabled: finalAutoPunch
@@ -67,35 +80,21 @@ export const createEmployee = async (req, res) => {
       return res.status(400).json({ message: "Email already exists" });
     }
     console.error("Error creating employee:", error);
-    res.status(500).json({ message: "Error creating employee", error });
+    res.status(500).json({ message: "Error creating employee", error: error.message });
   }
 };
-
-// export const updateEmployee = async (req, res) => {
-//   try {
-//     const updateData = { ...req.body };
-
-//     const updatedEmployee = await Employee.findByIdAndUpdate(
-//       req.params.id,
-//       updateData,
-//       { new: true }
-//     );
-//     if (!updatedEmployee) {
-//       return res.status(404).json({ message: "Employee not found" });
-//     }
-//     res.status(200).json({ message: "Employee updated successfully", employee: updatedEmployee });
-//   } catch (error) {
-//     console.error("Error updating employee:", error);
-//     res.status(500).json({ message: "Error updating employee", error });
-//   }
-// }
 
 export const updateEmployee = async (req, res) => {
   try {
     const updateData = { ...req.body };
 
+    // Clean up empty/optional managerId so existing manager is preserved
+    if (!updateData.managerId || updateData.managerId === '' || updateData.managerId === 'null') {
+      delete updateData.managerId;
+    }
+
     if (req.file) {
-      updateData.image = req.file.filename; // or full URL if needed
+      updateData.image = req.file.filename;
     }
 
     const updatedEmployee = await Employee.findByIdAndUpdate(
@@ -111,7 +110,7 @@ export const updateEmployee = async (req, res) => {
     res.status(200).json({ message: "Employee updated successfully", employee: updatedEmployee });
   } catch (error) {
     console.error("Error updating employee:", error);
-    res.status(500).json({ message: "Error updating employee", error });
+    res.status(500).json({ message: "Error updating employee", error: error.message });
   }
 };
 
@@ -122,7 +121,7 @@ export const deleteEmployee = async (req, res) => {
       console.error('[DELETE EMPLOYEE] Invalid route match - bulk-delete was matched as ID');
       return res.status(404).json({ message: "Route not found" });
     }
-    
+
     const deletedEmployee = await Employee.findByIdAndDelete(req.params.id);
     if (!deletedEmployee) {
       return res.status(404).json({ message: "Employee not found" });
@@ -138,7 +137,7 @@ export const deleteMultipleEmployees = async (req, res) => {
   try {
     console.log('[BULK DELETE] Request received:', req.body);
     const { employeeIds } = req.body;
-    
+
     if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
       console.log('[BULK DELETE] Validation failed: employeeIds is missing or empty');
       return res.status(400).json({ message: "Employee IDs array is required" });
@@ -159,74 +158,94 @@ export const deleteMultipleEmployees = async (req, res) => {
     console.log('[BULK DELETE] ObjectIds converted:', objectIds);
 
     const result = await Employee.deleteMany({ _id: { $in: objectIds } });
-    
+
     console.log(`[BULK DELETE] Successfully deleted ${result.deletedCount} out of ${employeeIds.length} employees`);
-    
-    res.status(200).json({ 
+
+    res.status(200).json({
       message: `Successfully deleted ${result.deletedCount} employee(s)`,
       deletedCount: result.deletedCount,
       requestedCount: employeeIds.length
     });
   } catch (error) {
     console.error("[BULK DELETE] Error deleting multiple employees:", error);
-    res.status(500).json({ 
-      message: "Error deleting employees", 
+    res.status(500).json({
+      message: "Error deleting employees",
       error: error.message || String(error)
     });
   }
 }
 export const getEmployees = async (req, res) => {
   try {
-    const { isWorking,shift } = req.query;
-    const userData= req?.user
-    console.log("userData---->",userData)
+    const { isWorking, shift, siteId } = req.query;
+    const userData = req?.user;
+    console.log("userData---->", userData, "req.query---->", req.query);
 
     // Build aggregation pipeline
     const pipeline = [];
     const mongoose = (await import("mongoose")).default;
-    
-    // Handle managers: if site manager (has siteId), show employees for that site; if global manager, show global employees
-    if(userData && userData.userType=="manager"){
-        // Ensure managerId is ObjectId
-        const managerObjectId = userData.id instanceof mongoose.Types.ObjectId 
-          ? userData.id 
-          : new mongoose.Types.ObjectId(userData.id);
-        
-        if(userData.siteId) {
-            // Site manager: show employees for their site
-            const siteObjectId = new mongoose.Types.ObjectId(userData.siteId);
-            pipeline.push({ $match: { managerId: managerObjectId, siteId: siteObjectId } });
-            console.log(`[getEmployees] Site Manager - managerId: ${managerObjectId}, siteId: ${siteObjectId}`);
+
+    // Handle siteId query filter logic
+    let siteIdMatch = undefined;
+    if (siteId === "null" || siteId === "unassigned") {
+      siteIdMatch = null;
+    } else if (siteId && siteId !== "all" && siteId !== "") {
+      try {
+        siteIdMatch = new mongoose.Types.ObjectId(siteId);
+      } catch (e) {
+        console.log(`[getEmployees] Invalid siteId query param format: ${siteId}`);
+      }
+    }
+
+    // Handle user types & roles
+    if (userData && userData.userType == "manager") {
+      // Ensure managerId is ObjectId
+      const managerObjectId = userData.id instanceof mongoose.Types.ObjectId
+        ? userData.id
+        : new mongoose.Types.ObjectId(userData.id);
+
+      if (userData.siteId) {
+        // Site manager: show employees for their site
+        const siteObjectId = new mongoose.Types.ObjectId(userData.siteId);
+        pipeline.push({ $match: { managerId: managerObjectId, siteId: siteObjectId } });
+        console.log(`[getEmployees] Site Manager - managerId: ${managerObjectId}, siteId: ${siteObjectId}`);
+      } else {
+        // Global manager: show their employees, applying siteId query filter if present
+        if (siteIdMatch !== undefined) {
+          pipeline.push({ $match: { managerId: managerObjectId, siteId: siteIdMatch } });
         } else {
-            // Global manager: show global employees (siteId: null)
-            pipeline.push({ $match: { managerId: managerObjectId, siteId: null } });
-            console.log(`[getEmployees] Global Manager - managerId: ${managerObjectId}, siteId: null`);
+          pipeline.push({ $match: { managerId: managerObjectId } });
         }
-    } else if(userData && userData.userType=="admin") {
-        // Admin filtering
-        if (userData.role === 'readonly' && userData.siteId) {
-            // Readonly admin assigned to a site - show only employees for that site
-            const siteObjectId = new mongoose.Types.ObjectId(userData.siteId);
-            pipeline.push({ $match: { siteId: siteObjectId } });
-            console.log(`[getEmployees] Readonly Admin - showing employees for assigned site ${userData.siteId}`);
+        console.log(`[getEmployees] Global Manager - managerId: ${managerObjectId}, siteIdFilter: ${siteIdMatch}`);
+      }
+    } else if (userData && userData.userType == "admin") {
+      // Admin filtering
+      if (userData.role === 'readonly' && userData.siteId) {
+        // Readonly admin assigned to a site - show only employees for that site
+        const siteObjectId = new mongoose.Types.ObjectId(userData.siteId);
+        pipeline.push({ $match: { siteId: siteObjectId } });
+        console.log(`[getEmployees] Readonly Admin - showing employees for assigned site ${userData.siteId}`);
+      } else {
+        // Superadmin - default is ALL employees unless siteId query param is explicitly provided
+        if (siteIdMatch !== undefined) {
+          pipeline.push({ $match: { siteId: siteIdMatch } });
+          console.log(`[getEmployees] Superadmin - filtering by siteId: ${siteIdMatch}`);
         } else {
-            // Superadmin - show only global employees (siteId: null)
-            pipeline.push({ $match: { siteId: null } });
-            console.log(`[getEmployees] Superadmin - showing global employees (siteId: null)`);
+          console.log(`[getEmployees] Superadmin - showing ALL employees (no siteId filter applied)`);
         }
+      }
     } else {
-        // No user data or unknown user type - return empty
-        console.log(`[getEmployees] No valid user data`);
-        return res.status(200).json({ message: "Success", data: [] });
+      // No user data or unknown user type - return empty
+      console.log(`[getEmployees] No valid user data`);
+      return res.status(200).json({ message: "Success", data: [] });
     }
 
     // Filter by shift if isWorking param is provided
     if (typeof isWorking !== "undefined") {
-        pipeline.push({ $match: { isWorking: isWorking } });
+      pipeline.push({ $match: { isWorking: isWorking === 'true' || isWorking === true } });
     }
- 
-    if(shift){
-         pipeline.push({ $match: { shift: shift } });
+
+    if (shift) {
+      pipeline.push({ $match: { shift: shift } });
     }
 
     // Lookup for createdBy (Admin)
@@ -261,6 +280,22 @@ export const getEmployees = async (req, res) => {
       }
     });
 
+    // Lookup for siteId (Site)
+    pipeline.push({
+      $lookup: {
+        from: "sites",
+        localField: "siteId",
+        foreignField: "_id",
+        as: "siteId"
+      }
+    });
+    pipeline.push({
+      $unwind: {
+        path: "$siteId",
+        preserveNullAndEmptyArrays: true
+      }
+    });
+
     const employees = await Employee.aggregate(pipeline.length ? pipeline : [{ $match: {} }]);
     console.log(`[getEmployees] Found ${employees.length} employees matching criteria`);
     res.status(200).json({ message: "Success", data: employees });
@@ -268,64 +303,64 @@ export const getEmployees = async (req, res) => {
     console.error("Error fetching employees:", error);
     res.status(500).json({ message: "Error fetching employees", error });
   }
-}
+};
 
 // Manager-specific employee creation
 export const createEmployeeByManager = async (req, res) => {
-    try {
-        const { email, name, mobile, address, shift, siteId } = req.body;
-        const user = req.user;
-        // Log the incoming payload and clarify optional fields
-        console.log('[CREATE EMPLOYEE BY MANAGER] Payload:', req.body);
-        console.log('[CREATE EMPLOYEE BY MANAGER] Email and mobile are optional. Received email:', email, 'mobile:', mobile);
-        // Validate required fields
-        if (!name || !address || !shift) {
-            return res.status(400).json({ message: "All fields are required" });
-        }
-        
-        // If an image was uploaded, save its filename or path
-        let image = "";
-        if (req.file) {
-            image = req.file.filename; // or `${req.protocol}://${req.get("host")}/upload/${req.file.filename}` for full URL
-            console.log('[CREATE EMPLOYEE BY MANAGER] Image uploaded:', image);
-        }
-        
-        const managerId = user.id;
-        const createdBy = user.id;
-        const isCreatedByAdmin = false;
-        
-        // If siteId not provided, use manager's siteId from req.user (set by middleware)
-        let finalSiteId = siteId || user.siteId || null;
-        if (finalSiteId === 'null' || finalSiteId === '') finalSiteId = null;
-
-        const defaultAutoPunch = finalSiteId ? true : false;
-        const { autoPunchEnabled } = req.body;
-        const finalAutoPunch = typeof autoPunchEnabled !== 'undefined' && autoPunchEnabled !== null
-          ? Boolean(autoPunchEnabled)
-          : defaultAutoPunch;
-        
-        const newEmployee = new Employee({ 
-            email, 
-            name, 
-            mobile, 
-            address, 
-            managerId, 
-            shift, 
-            createdBy, 
-            isCreatedByAdmin,
-            image, // optional image field
-            siteId: finalSiteId,
-            autoPunchEnabled: finalAutoPunch
-        });
-        await newEmployee.save();
-        res.status(201).json({ message: "Employee created successfully", employee: newEmployee });
-    } catch (error) {
-        if (error.code === 11000) {
-            return res.status(400).json({ message: "Email already exists" });
-        }
-        console.error("Error creating employee by manager:", error);
-        res.status(500).json({ message: "Error creating employee by manager", error });
+  try {
+    const { email, name, mobile, address, shift, siteId } = req.body;
+    const user = req.user;
+    // Log the incoming payload and clarify optional fields
+    console.log('[CREATE EMPLOYEE BY MANAGER] Payload:', req.body);
+    console.log('[CREATE EMPLOYEE BY MANAGER] Email and mobile are optional. Received email:', email, 'mobile:', mobile);
+    // Validate required fields
+    if (!name || !address || !shift) {
+      return res.status(400).json({ message: "All fields are required" });
     }
+
+    // If an image was uploaded, save its filename or path
+    let image = "";
+    if (req.file) {
+      image = req.file.filename; // or `${req.protocol}://${req.get("host")}/upload/${req.file.filename}` for full URL
+      console.log('[CREATE EMPLOYEE BY MANAGER] Image uploaded:', image);
+    }
+
+    const managerId = user.id;
+    const createdBy = user.id;
+    const isCreatedByAdmin = false;
+
+    // If siteId not provided, use manager's siteId from req.user (set by middleware)
+    let finalSiteId = siteId || user.siteId || null;
+    if (finalSiteId === 'null' || finalSiteId === '') finalSiteId = null;
+
+    const defaultAutoPunch = finalSiteId ? true : false;
+    const { autoPunchEnabled } = req.body;
+    const finalAutoPunch = typeof autoPunchEnabled !== 'undefined' && autoPunchEnabled !== null
+      ? Boolean(autoPunchEnabled)
+      : defaultAutoPunch;
+
+    const newEmployee = new Employee({
+      email,
+      name,
+      mobile,
+      address,
+      managerId,
+      shift,
+      createdBy,
+      isCreatedByAdmin,
+      image, // optional image field
+      siteId: finalSiteId,
+      autoPunchEnabled: finalAutoPunch
+    });
+    await newEmployee.save();
+    res.status(201).json({ message: "Employee created successfully", employee: newEmployee });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+    console.error("Error creating employee by manager:", error);
+    res.status(500).json({ message: "Error creating employee by manager", error });
+  }
 };
 
 // Toggle auto punch for single employee
@@ -339,8 +374,8 @@ export const toggleAutoPunch = async (req, res) => {
       return res.status(404).json({ message: "Employee not found" });
     }
 
-    employee.autoPunchEnabled = typeof autoPunchEnabled === 'boolean' 
-      ? autoPunchEnabled 
+    employee.autoPunchEnabled = typeof autoPunchEnabled === 'boolean'
+      ? autoPunchEnabled
       : !employee.autoPunchEnabled;
 
     await employee.save();

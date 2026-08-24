@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { FaSync, FaFilePdf, FaFileExcel } from 'react-icons/fa'
 import { employeeAPI, attendanceAPI } from '../services/api'
+import Pagination from '../components/Pagination'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
@@ -8,6 +9,7 @@ import logoImage from '../images/Logo.jpg'
 import './Page.css'
 
 const MasterRollReport = () => {
+  const tableContainerRef = useRef(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [month, setMonth] = useState('01')
   const [year, setYear] = useState('2026')
@@ -16,6 +18,8 @@ const MasterRollReport = () => {
   const [attendanceData, setAttendanceData] = useState([])
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(25)
   const [summary, setSummary] = useState({
     totalPresentDays: 0,
     totalEmployees: 0,
@@ -94,34 +98,34 @@ const MasterRollReport = () => {
     // Group attendance by employee
     const employeeAttendanceMap = {}
     
-    // Create a map of employees by ID for faster lookup
-    const employeeMap = {}
+    // 1. Initialize entry for every employee so all employees appear on Muster Roll
     employeesList.forEach(emp => {
       const empIdStr = String(emp._id || emp.id)
-      employeeMap[empIdStr] = emp
+      employeeAttendanceMap[empIdStr] = {
+        employeeId: empIdStr,
+        name: emp.name || 'Unknown',
+        designation: emp.designation || 'N/A',
+        shift: emp.shift || 'N/A',
+        attendance: {}
+      }
     })
     
+    // 2. Populate attendance data
     attendanceRecords.forEach(record => {
-      // Handle both populated and unpopulated employeeId
       let empId = null
       let employee = null
       
       if (record.employeeId) {
         if (typeof record.employeeId === 'object' && record.employeeId._id) {
-          // Populated employeeId
           empId = String(record.employeeId._id)
-          employee = record.employeeId // Use populated data directly
+          employee = record.employeeId
         } else {
-          // Unpopulated employeeId (just the ID)
           empId = String(record.employeeId)
-          employee = employeeMap[empId]
+          employee = employeeAttendanceMap[empId]
         }
       }
       
-      if (!empId) {
-        console.warn('Attendance record missing employeeId:', record)
-        return // Skip records without employeeId
-      }
+      if (!empId) return
       
       if (!employeeAttendanceMap[empId]) {
         employeeAttendanceMap[empId] = {
@@ -145,7 +149,6 @@ const MasterRollReport = () => {
       }
     })
     
-    // Convert to array format
     return Object.values(employeeAttendanceMap)
   }
 
@@ -227,9 +230,21 @@ const MasterRollReport = () => {
         else if (attendance[day].status === 'W') weekOff++
       }
     })
-    
     return { present, absent, weekOff }
   }
+
+  const totalItems = filteredData.length
+  const totalPages = Math.ceil(totalItems / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedData = filteredData.slice(startIndex, endIndex)
+
+  useEffect(() => {
+    setCurrentPage(1)
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollLeft = 0
+    }
+  }, [searchQuery, month, year, fromDate, toDate])
 
   const exportToPDF = async () => {
     try {
@@ -629,7 +644,8 @@ const MasterRollReport = () => {
             ) : filteredData.length === 0 ? (
               <div className="empty-state">No data available</div>
             ) : (
-              filteredData.map((row, index) => {
+              paginatedData.map((row, relativeIndex) => {
+                const index = startIndex + relativeIndex
                 const summary = calculateEmployeeSummary(row)
                 return (
                   <div key={row.employeeId || index} className="muster-card-mobile">
@@ -685,7 +701,7 @@ const MasterRollReport = () => {
           {/* Desktop Table View */}
           <div className="table-wrapper-mobile desktop-only">
             <div className="scroll-hint">← Swipe to see all days →</div>
-            <div className="table-container">
+            <div className="table-container" ref={tableContainerRef}>
               <table className="data-table muster-table">
               <thead>
                 <tr>
@@ -711,35 +727,43 @@ const MasterRollReport = () => {
                     <td colSpan={5 + daysInPeriod.length} className="empty-state">No data available</td>
                   </tr>
                 ) : (
-                  <>
-                    {filteredData.map((row, index) => (
-                    <tr key={row.employeeId || index}>
-                      <td className="sticky-col">{index + 1}</td>
-                      <td className="sticky-col">{row.name}</td>
-                      <td className="sticky-col">{row.designation}</td>
-                      <td className="sticky-col">{row.shift}</td>
-                      {daysInPeriod.map(({ day }) => (
-                        <td key={day} className="attendance-cell">
-                          {row.attendance && row.attendance[day] ? (
-                            <div className="attendance-content">
-                              <div className="attendance-status">{row.attendance[day].status}</div>
-                              {row.attendance[day].stepIn && (
-                                <div className="attendance-step-in">{row.attendance[day].stepIn}</div>
+                  <React.Fragment>
+                    {paginatedData.map((row, relativeIndex) => {
+                      const index = startIndex + relativeIndex
+                      return (
+                        <tr key={row.employeeId || index}>
+                          <td className="sticky-col">{index + 1}</td>
+                          <td className="sticky-col" style={{ fontWeight: '600', color: '#1e293b' }}>{row.name}</td>
+                          <td className="sticky-col" style={{ color: '#64748b' }}>{row.designation}</td>
+                          <td className="sticky-col" style={{ textTransform: 'capitalize', color: '#64748b' }}>{row.shift}</td>
+                          {daysInPeriod.map(({ day }) => (
+                            <td key={day} className="attendance-cell">
+                              {row.attendance && row.attendance[day] ? (
+                                <div 
+                                  className="attendance-content"
+                                  title={`${row.attendance[day].status === 'P' ? 'Present' : row.attendance[day].status === 'A' ? 'Absent' : 'Week Off'}${row.attendance[day].stepIn ? ` | In: ${row.attendance[day].stepIn}` : ''}${row.attendance[day].stepOut ? ` | Out: ${row.attendance[day].stepOut}` : ''}`}
+                                >
+                                  <div className={`attendance-badge status-${row.attendance[day].status.toLowerCase()}`}>
+                                    {row.attendance[day].status}
+                                  </div>
+                                  {row.attendance[day].stepIn && (
+                                    <div className="attendance-step-in">{row.attendance[day].stepIn}</div>
+                                  )}
+                                  {row.attendance[day].stepOut && (
+                                    <div className="attendance-step-out">{row.attendance[day].stepOut}</div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="attendance-empty">-</span>
                               )}
-                              {row.attendance[day].stepOut && (
-                                <div className="attendance-step-out">{row.attendance[day].stepOut}</div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="attendance-empty">-</span>
-                          )}
-                        </td>
-                      ))}
-                        <td className="sticky-col total-col" style={{ fontWeight: 'bold', background: '#f9fafb' }}>
-                          {rowTotals[index] || 0}
-                        </td>
-                      </tr>
-                    ))}
+                            </td>
+                          ))}
+                          <td className="sticky-col total-col" style={{ fontWeight: 'bold', background: '#f9fafb', color: '#1e40af' }}>
+                            {rowTotals[index] || 0}
+                          </td>
+                        </tr>
+                      )
+                    })}
                     {/* Total Row */}
                     <tr style={{ background: '#f3f4f6', fontWeight: 'bold' }}>
                       <td className="sticky-col" style={{ fontWeight: 'bold' }}>TOTAL</td>
@@ -753,12 +777,26 @@ const MasterRollReport = () => {
                         {grandTotal}
                       </td>
                     </tr>
-                  </>
+                  </React.Fragment>
                 )}
               </tbody>
               </table>
             </div>
           </div>
+
+          {filteredData.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={totalItems}
+              onItemsPerPageChange={(value) => {
+                setItemsPerPage(value)
+                setCurrentPage(1)
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

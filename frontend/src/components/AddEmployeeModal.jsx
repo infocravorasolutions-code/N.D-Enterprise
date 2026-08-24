@@ -208,10 +208,9 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false
               type="email"
               name="email"
               className="form-input"
-              placeholder="john.d@example.com"
+              placeholder="john.d@example.com (optional)"
               value={formData.email}
               onChange={handleChange}
-              required
             />
           </div>
 
@@ -223,10 +222,9 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false
                 className="form-input"
                 value={formData.manager}
                 onChange={handleChange}
-                required
                 disabled={loadingManagers}
               >
-                <option value="">Select a manager</option>
+                <option value="">Select a manager (optional)</option>
                 {managers.map((manager) => (
                   <option key={manager._id} value={manager._id}>
                     {manager.name}
@@ -270,11 +268,10 @@ const AddEmployeeModal = ({ isOpen, onClose, onSave, employee, isManager = false
               type="tel"
               name="mobile"
               className="form-input"
-              placeholder="10-digit mobile number"
+              placeholder="10-digit mobile number (optional)"
               value={formData.mobile}
               onChange={handleChange}
               maxLength="10"
-              required
             />
           </div>
 

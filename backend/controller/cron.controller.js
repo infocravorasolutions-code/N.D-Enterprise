@@ -4,59 +4,10 @@ import Employee from "../models/employee.models.js";
 import Site from "../models/site.models.js";
 import { getCurrentISTTime, getHoursAgoInIST, getCurrentISTHour } from "../utils/timeUtils.js";
 
-// Function to get shift end time based on shift type and clock-in time (in IST)
-const getShiftEndTime = (clockInTime, shift) => {
-  // Convert clockInTime to IST for date extraction
+// Function to get shift end time based on clock-in time (exactly 8 hours from clock-in)
+const getShiftEndTime = (clockInTime) => {
   const clockInDate = new Date(clockInTime);
-  
-  // Get IST date components using Intl.DateTimeFormat for more reliable parsing
-  const istFormatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  });
-  
-  const parts = istFormatter.formatToParts(clockInDate);
-  const getPart = (type) => {
-    const part = parts.find(p => p.type === type);
-    return part ? parseInt(part.value, 10) : 0;
-  };
-  
-  const year = getPart('year');
-  const month = getPart('month');
-  const day = getPart('day');
-  
-  // Create date string in ISO format with IST timezone offset (+05:30)
-  const createISTDateString = (y, m, d, h, min, s = 0) => {
-    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(s).padStart(2, '0')}+05:30`;
-  };
-  
-  switch (shift) {
-    case 'morning':
-      // Morning shift ends at 3:00 PM same day in IST
-      return new Date(createISTDateString(year, month, day, 15, 0, 0));
-    case 'evening':
-      // Evening shift ends at 11:00 PM same day in IST
-      return new Date(createISTDateString(year, month, day, 23, 0, 0));
-    case 'night':
-      // Night shift ends at 7:00 AM next day in IST
-      // Calculate next day in IST
-      const nextDayDate = new Date(clockInDate);
-      nextDayDate.setUTCDate(nextDayDate.getUTCDate() + 1);
-      const nextDayParts = istFormatter.formatToParts(nextDayDate);
-      const nextYear = parseInt(nextDayParts.find(p => p.type === 'year').value, 10);
-      const nextMonth = parseInt(nextDayParts.find(p => p.type === 'month').value, 10);
-      const nextDay = parseInt(nextDayParts.find(p => p.type === 'day').value, 10);
-      return new Date(createISTDateString(nextYear, nextMonth, nextDay, 7, 0, 0));
-    default:
-      // Default to 8 hours from clock-in
-      return new Date(clockInTime.getTime() + 8 * 60 * 60 * 1000);
-  }
+  return new Date(clockInDate.getTime() + 8 * 60 * 60 * 1000);
 };
 
 // Run every 30 minutes - Auto step-out based on shift end times
@@ -214,10 +165,11 @@ export const autoStepIn = async (forcedShift = null) => {
     const activeSiteMap = new Map();
     activeSites.forEach(s => activeSiteMap.set(s._id.toString(), s));
 
-    // Find ALL employees assigned to this shift who are not currently working
+    // Find ALL employees assigned to this shift who are not currently working and have auto punch enabled
     const employees = await Employee.find({
       shift: currentShift,
-      isWorking: false
+      isWorking: false,
+      autoPunchEnabled: { $ne: false }
     });
 
     console.log(`Found ${employees.length} employees for ${currentShift} shift`);
@@ -275,8 +227,11 @@ export const autoStepIn = async (forcedShift = null) => {
           continue;
         }
 
-        // Create attendance record
+        // Create attendance record with randomized step-in time (randomized between 00 and 30 minutes of shift start)
         const stepIn = getCurrentISTTime();
+        const randMin = Math.floor(Math.random() * 31); // 0 to 30 mins
+        const randSec = Math.floor(Math.random() * 60); // 0 to 59 secs
+        stepIn.setMinutes(randMin, randSec, 0);
         const attendance = new Attendance({
           employeeId: employee._id,
           managerId: employee.managerId,

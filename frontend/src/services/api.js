@@ -318,6 +318,14 @@ export const adminAPI = {
       body: JSON.stringify({ email, password }),
     });
   },
+  
+  triggerAutoPunch: (type, shift = null, hour = null) => {
+    const endpoint = type === 'step-in' ? '/admin/cron/trigger-step-in' : '/admin/cron/trigger-step-out';
+    return apiCall(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({ shift, hour }),
+    });
+  },
 };
 
 // Site/Event APIs

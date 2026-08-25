@@ -185,6 +185,19 @@ const Admins = () => {
     }
   }
 
+  const handleTriggerAutoPunch = async (type, shift = null, hour = null) => {
+    if (!window.confirm(`Are you sure you want to trigger manual auto ${type}?`)) {
+      return
+    }
+    try {
+      const response = await adminAPI.triggerAutoPunch(type, shift, hour);
+      alert(response.message || `Successfully triggered ${type}`);
+    } catch (error) {
+      console.error(`Error triggering ${type}:`, error);
+      alert(error.message || `Failed to trigger ${type}`);
+    }
+  }
+
   // Pagination calculations
   const totalItems = admins.length
   const totalPages = Math.ceil(totalItems / itemsPerPage)
@@ -207,6 +220,16 @@ const Admins = () => {
         </div>
       </div>
       <div className="page-content">
+        <div className="content-section" style={{ marginBottom: '20px' }}>
+          <h3>Manual Cron Triggers</h3>
+          <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>Use these if the server missed an automatic punch schedule.</p>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button className="btn-secondary" onClick={() => handleTriggerAutoPunch('step-in', 'morning', 7)}>Trigger Morning Step-in (7 AM)</button>
+            <button className="btn-secondary" onClick={() => handleTriggerAutoPunch('step-in', 'evening', 15)}>Trigger Evening Step-in (3 PM)</button>
+            <button className="btn-secondary" onClick={() => handleTriggerAutoPunch('step-in', 'night', 23)}>Trigger Night Step-in (11 PM)</button>
+            <button className="btn-primary" style={{ backgroundColor: '#dc3545', border: 'none' }} onClick={() => handleTriggerAutoPunch('step-out')}>Trigger Auto Step-out (Global)</button>
+          </div>
+        </div>
         <div className="content-section">
           <div className="table-container">
             <table className="data-table">

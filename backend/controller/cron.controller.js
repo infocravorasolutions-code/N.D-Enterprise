@@ -126,7 +126,7 @@ export const autoStepOut = async () => {
 };
 
 // Run every 1 hour - Auto step-in at shift start times (7 AM, 3 PM, 11 PM)
-export const autoStepIn = async (forcedShift = null) => {
+export const autoStepIn = async (forcedShift = null, forcedHour = null) => {
   console.log("Running auto-step-in check...");
 
   const now = getCurrentISTTime();
@@ -229,6 +229,9 @@ export const autoStepIn = async (forcedShift = null) => {
 
         // Create attendance record with randomized step-in time (randomized between 00 and 30 minutes of shift start)
         const stepIn = getCurrentISTTime();
+        if (forcedHour !== null) {
+          stepIn.setHours(forcedHour);
+        }
         const randMin = Math.floor(Math.random() * 31); // 0 to 30 mins
         const randSec = Math.floor(Math.random() * 60); // 0 to 59 secs
         stepIn.setMinutes(randMin, randSec, 0);

@@ -98,8 +98,8 @@ cron.schedule("*/30 * * * *", autoStepOut, {
   timezone: "Asia/Kolkata"
 });
 
-// Auto step-in: Run every 1 hour at minute 0 - Auto step-in at shift start times (7 AM, 3 PM, 11 PM)
-cron.schedule("0 * * * *", autoStepIn, {
+// Auto step-in: Run every 15 minutes - Auto step-in at shift start times (7 AM, 3 PM, 11 PM)
+cron.schedule("*/15 * * * *", autoStepIn, {
   timezone: "Asia/Kolkata"
 });
 

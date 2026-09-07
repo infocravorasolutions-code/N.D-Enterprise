@@ -94,12 +94,16 @@ app.use("/api/site",siteRoutes)
 app.use("/api/auth",authRouter)
 
 // Auto step-out: Run every 30 minutes - checks if employees should be auto-stepped-out based on shift end times
-cron.schedule("*/30 * * * *", autoStepOut, {
+cron.schedule("*/30 * * * *", () => {
+  autoStepOut().catch(err => console.error("Cron autoStepOut error:", err));
+}, {
   timezone: "Asia/Kolkata"
 });
 
-// Auto step-in: Run every 15 minutes - Auto step-in at shift start times (7 AM, 3 PM, 11 PM)
-cron.schedule("*/15 * * * *", autoStepIn, {
+// Auto step-in: Run every 15 minutes - Auto step-in at shift start times (7 AM, 3 PM, 11 PM IST)
+cron.schedule("*/15 * * * *", () => {
+  autoStepIn().catch(err => console.error("Cron autoStepIn error:", err));
+}, {
   timezone: "Asia/Kolkata"
 });
 

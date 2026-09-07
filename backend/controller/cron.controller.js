@@ -1,8 +1,7 @@
-
 import Attendance from "../models/attendence.models.js";
 import Employee from "../models/employee.models.js";
 import Site from "../models/site.models.js";
-import { getCurrentISTTime, getHoursAgoInIST, getCurrentISTHour } from "../utils/timeUtils.js";
+import { getCurrentISTTime, getCurrentISTHour } from "../utils/timeUtils.js";
 
 // Function to get shift end time based on clock-in time (exactly 8 hours from clock-in)
 const getShiftEndTime = (clockInTime) => {
@@ -15,8 +14,7 @@ export const autoStepOut = async () => {
   console.log("Running auto-step-out check...");
 
   const TEST_MODE_STEP_OUT_ALL = false; // Production mode: shift-based auto step-out
-
-  const now = getCurrentISTTime();
+  const now = new Date();
   
   try {
     // Find all open attendance records (both global and site-specific)
@@ -58,19 +56,23 @@ export const autoStepOut = async () => {
         }
         
         let shouldStepOut = false;
+        const shiftEndTime = getShiftEndTime(attendance.stepIn);
         
         if (TEST_MODE_STEP_OUT_ALL) {
           shouldStepOut = true;
         } else {
-          const shiftEndTime = getShiftEndTime(attendance.stepIn, shift);
           // 15-minute buffer after shift end time before auto clock-out
           const autoClockOutTime = new Date(shiftEndTime.getTime() + 15 * 60 * 1000);
           shouldStepOut = now >= autoClockOutTime;
         }
         
         if (shouldStepOut) {
-          const stepOutTime = getCurrentISTTime();
-          const totalTime = Math.round((stepOutTime - attendance.stepIn) / 60000); // in minutes
+          // If auto step-out runs on time, use now; if delayed, clamp to shiftEndTime + random 0-15m
+          let stepOutTime = new Date();
+          if (stepOutTime.getTime() > shiftEndTime.getTime() + 60 * 60 * 1000) {
+            stepOutTime = new Date(shiftEndTime.getTime() + Math.floor(Math.random() * 15) * 60 * 1000);
+          }
+          const totalTime = Math.round((stepOutTime.getTime() - new Date(attendance.stepIn).getTime()) / 60000); // in minutes
 
           attendance.stepOut = stepOutTime;
           attendance.totalTime = totalTime;
@@ -79,6 +81,7 @@ export const autoStepOut = async () => {
             attendance.stepOutAddress = site.name;
             attendance.note = attendance.note || `Auto stepped out after ${shift} shift at site "${site.name}"`;
           } else {
+            attendance.stepOutAddress = attendance.stepOutAddress || attendance.stepInAddress || "East side Phase Two";
             attendance.note = attendance.note || `Auto stepped out after ${shift} shift end time`;
           }
 
@@ -125,28 +128,31 @@ export const autoStepOut = async () => {
   }
 };
 
-// Run every 1 hour - Auto step-in at shift start times (7 AM, 3 PM, 11 PM)
+// Run every 15 minutes - Auto step-in at shift start times (7 AM, 3 PM, 11 PM IST)
 export const autoStepIn = async (forcedShift = null, forcedHour = null) => {
   console.log("Running auto-step-in check...");
 
-  const now = getCurrentISTTime();
-  const currentHour = getCurrentISTHour(); // Get hour in IST (0-23)
+  // Sanitize arguments in case node-cron passes an object ({ date, task, ... })
+  const shiftParam = typeof forcedShift === 'string' ? forcedShift.trim().toLowerCase() : null;
+  const hourParam = typeof forcedHour === 'number' ? forcedHour : null;
+
+  const currentHour = hourParam !== null ? hourParam : getCurrentISTHour();
   
   // Define shift start times and their corresponding shifts
   const shiftStartTimes = {
-    7: 'morning',   // 7 AM
-    15: 'evening',  // 3 PM (15:00)
-    23: 'night'     // 11 PM (23:00)
+    7: 'morning',   // 7 AM IST
+    15: 'evening',  // 3 PM IST (15:00)
+    23: 'night'     // 11 PM IST (23:00)
   };
 
-  const currentShift = forcedShift ? forcedShift.toLowerCase() : shiftStartTimes[currentHour];
+  const currentShift = shiftParam || shiftStartTimes[currentHour];
   
   if (!currentShift) {
     console.log(`Current hour (${currentHour}) is not a shift start time. Skipping auto step-in.`);
     return;
   }
 
-  console.log(`Shift start detected: ${currentShift} shift ${forcedShift ? '(forced mode)' : `at ${currentHour}:00`}`);
+  console.log(`Shift start detected: ${currentShift} shift ${shiftParam ? '(forced mode)' : `at ${currentHour}:00 IST`}`);
 
   // Random fallback locations for global employees
   const randomLocations = [
@@ -157,8 +163,11 @@ export const autoStepIn = async (forcedShift = null, forcedHour = null) => {
   ];
 
   try {
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
+    // Determine IST date string (YYYY-MM-DD) and boundaries
+    const now = new Date();
+    const istDateStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const todayStart = new Date(`${istDateStr}T00:00:00+05:30`);
+    const todayEnd = new Date(`${istDateStr}T23:59:59.999+05:30`);
 
     // Pre-fetch all active sites to map site names and verify active status
     const activeSites = await Site.find({ status: 'active', isActive: { $ne: false } });
@@ -178,6 +187,13 @@ export const autoStepIn = async (forcedShift = null, forcedHour = null) => {
     let skippedCount = 0;
     let globalCount = 0;
     let siteCount = 0;
+
+    // Shift start hours in IST: morning=7, evening=15, night=23
+    let shiftStartHour = 7;
+    if (currentShift === 'evening') shiftStartHour = 15;
+    if (currentShift === 'night') shiftStartHour = 23;
+    if (hourParam !== null) shiftStartHour = hourParam;
+    const shiftHourStr = String(shiftStartHour).padStart(2, '0');
 
     for (const employee of employees) {
       try {
@@ -216,8 +232,7 @@ export const autoStepIn = async (forcedShift = null, forcedHour = null) => {
         const todayAttendance = await Attendance.findOne({
           employeeId: employee._id,
           shift: currentShift,
-          stepIn: { $gte: todayStart },
-          note: { $regex: /Auto stepped in/i }
+          stepIn: { $gte: todayStart, $lte: todayEnd }
         });
 
         if (todayAttendance) {
@@ -227,14 +242,11 @@ export const autoStepIn = async (forcedShift = null, forcedHour = null) => {
           continue;
         }
 
-        // Create attendance record with randomized step-in time (randomized between 00 and 30 minutes of shift start)
-        const stepIn = getCurrentISTTime();
-        if (forcedHour !== null) {
-          stepIn.setHours(forcedHour);
-        }
-        const randMin = Math.floor(Math.random() * 31); // 0 to 30 mins
-        const randSec = Math.floor(Math.random() * 60); // 0 to 59 secs
-        stepIn.setMinutes(randMin, randSec, 0);
+        // Create attendance record with randomized step-in time in IST (+05:30)
+        const randMin = String(Math.floor(Math.random() * 31)).padStart(2, '0'); // 0 to 30 mins
+        const randSec = String(Math.floor(Math.random() * 60)).padStart(2, '0'); // 0 to 59 secs
+        const stepIn = new Date(`${istDateStr}T${shiftHourStr}:${randMin}:${randSec}+05:30`);
+
         const attendance = new Attendance({
           employeeId: employee._id,
           managerId: employee.managerId,

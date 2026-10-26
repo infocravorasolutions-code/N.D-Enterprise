@@ -1,4 +1,6 @@
 import Manager from "../models/manager.models.js";
+import Employee from "../models/employee.models.js";
+import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -35,6 +37,20 @@ export const createManager = async (req, res) => {
     await newManager.save();
     console.log('✅ [createManager] Manager saved successfully:', newManager._id);
     
+    // If manager was assigned to a site, link any employees on that site to this manager
+    if (siteId && siteId !== 'null' && siteId !== '') {
+      try {
+        const siteObjectId = new mongoose.Types.ObjectId(siteId);
+        const linkResult = await Employee.updateMany(
+          { siteId: siteObjectId },
+          { $set: { managerId: newManager._id } }
+        );
+        console.log(`[createManager] Linked ${linkResult.modifiedCount} employees on site ${siteId} to new manager ${newManager._id}`);
+      } catch (linkErr) {
+        console.error('[createManager] Error linking employees to new manager:', linkErr);
+      }
+    }
+
     res.status(201).json({ message: "Manager created successfully", manager: newManager });
   } catch (error) {
     if (error.code === 11000) {
@@ -74,6 +90,21 @@ export const updateManager = async (req, res) => {
     if (!updatedManager) {
       return res.status(404).json({ message: "Manager not found" });
     }
+
+    // If manager is assigned to a site, link any employees on that site to this manager
+    if (updatedManager.siteId) {
+      try {
+        const siteObjectId = new mongoose.Types.ObjectId(updatedManager.siteId);
+        const linkResult = await Employee.updateMany(
+          { siteId: siteObjectId },
+          { $set: { managerId: updatedManager._id } }
+        );
+        console.log(`[updateManager] Linked ${linkResult.modifiedCount} employees on site ${updatedManager.siteId} to manager ${updatedManager._id}`);
+      } catch (linkErr) {
+        console.error('[updateManager] Error linking employees to manager:', linkErr);
+      }
+    }
+
     res.status(200).json({ message: "Manager updated successfully", manager: updatedManager });
   } catch (error) {
     console.error("Error updating manager:", error);

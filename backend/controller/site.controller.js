@@ -605,20 +605,19 @@ export const assignEmployeesToSite = async (req, res) => {
     });
 
     // Find managers assigned to this site
-    const siteManagers = await Manager.find({ siteId: siteObjectId }).limit(1);
+    const siteManagers = await Manager.find({ siteId: siteObjectId });
     console.log(`[assignEmployeesToSite] Found ${siteManagers.length} manager(s) for site ${siteId}`);
     
     // Determine which manager to assign employees to
     let managerIdToAssign = null;
     if (req.body.managerId) {
-      // If managerId is explicitly provided in request, use it
+      // If managerId is explicitly provided in request, verify it exists
       try {
         managerIdToAssign = new mongoose.Types.ObjectId(req.body.managerId);
-        // Verify this manager is assigned to the site
-        const manager = await Manager.findOne({ _id: managerIdToAssign, siteId: siteObjectId });
+        const manager = await Manager.findById(managerIdToAssign);
         if (!manager) {
           return res.status(400).json({ 
-            message: "The specified manager is not assigned to this site" 
+            message: "The specified manager was not found" 
           });
         }
         console.log(`[assignEmployeesToSite] Using provided managerId: ${managerIdToAssign.toString()}, Manager name: ${manager.name}`);
@@ -630,27 +629,28 @@ export const assignEmployeesToSite = async (req, res) => {
       managerIdToAssign = siteManagers[0]._id;
       console.log(`[assignEmployeesToSite] Auto-selected first manager: ${managerIdToAssign.toString()}, Manager name: ${siteManagers[0].name}`);
     } else {
-      // No managers assigned to site - return error
-      return res.status(400).json({ 
-        message: "No managers are assigned to this site. Please assign a manager to the site first, or specify a managerId in the request." 
-      });
+      // No managers assigned to site - do NOT fail! Retain existing manager or use system fallback
+      console.log(`[assignEmployeesToSite] No managers assigned to site ${siteId}. Retaining existing employee managers or using default.`);
     }
     
-    // Ensure managerIdToAssign is an ObjectId
-    if (!(managerIdToAssign instanceof mongoose.Types.ObjectId)) {
+    // Ensure managerIdToAssign is an ObjectId if present
+    if (managerIdToAssign && !(managerIdToAssign instanceof mongoose.Types.ObjectId)) {
       managerIdToAssign = new mongoose.Types.ObjectId(managerIdToAssign);
     }
 
-    // Update employees to assign them to this site and update their manager, enabling auto punch by default
+    // Update employees to assign them to this site, enabling auto punch by default
     const updateData = { 
       siteId: siteObjectId,
-      managerId: managerIdToAssign,
       autoPunchEnabled: true
     };
+
+    if (managerIdToAssign) {
+      updateData.managerId = managerIdToAssign;
+    }
     
     console.log(`[assignEmployeesToSite] Updating employees with:`, {
       siteId: siteObjectId.toString(),
-      managerId: managerIdToAssign.toString(),
+      managerId: managerIdToAssign ? managerIdToAssign.toString() : 'retained existing',
       employeeCount: employeeObjectIds.length
     });
     
@@ -659,16 +659,35 @@ export const assignEmployeesToSite = async (req, res) => {
       { $set: updateData }
     );
 
+    // If no specific manager was assigned, ensure any employee without a valid manager gets a system default fallback manager
+    if (!managerIdToAssign) {
+      const defaultManager = await Manager.findOne({ isActive: true }) || await Manager.findOne({});
+      if (defaultManager) {
+        await Employee.updateMany(
+          { 
+            _id: { $in: employeeObjectIds }, 
+            $or: [{ managerId: null }, { managerId: { $exists: false } }] 
+          },
+          { $set: { managerId: defaultManager._id } }
+        );
+      }
+    }
+
     // Also update any existing attendance records for these employees to this site
+    const attendanceUpdateQuery = { 
+      employeeId: { $in: employeeObjectIds },
+      $or: [
+        { siteId: null },
+        { siteId: { $ne: siteObjectId } }
+      ]
+    };
+    const attendanceUpdateData = { siteId: siteObjectId };
+    if (managerIdToAssign) {
+      attendanceUpdateData.managerId = managerIdToAssign;
+    }
     const attendanceUpdateResult = await Attendance.updateMany(
-      { 
-        employeeId: { $in: employeeObjectIds },
-        $or: [
-          { siteId: null },
-          { siteId: { $ne: siteObjectId } }
-        ]
-      },
-      { $set: { siteId: siteObjectId } }
+      attendanceUpdateQuery,
+      { $set: attendanceUpdateData }
     );
 
     console.log(`[assignEmployeesToSite] Assigned ${result.modifiedCount} employees to site ${siteId}`);
@@ -683,7 +702,8 @@ export const assignEmployeesToSite = async (req, res) => {
       message: `Successfully assigned ${result.modifiedCount} employee(s) to site`,
       assignedCount: result.modifiedCount,
       requestedCount: employeeIds.length,
-      totalEmployeesInSite: assignedEmployees
+      totalEmployeesInSite: assignedEmployees,
+      managerId: managerIdToAssign
     });
   } catch (error) {
     console.error("Error assigning employees to site:", error);
@@ -730,10 +750,10 @@ export const unassignEmployeesFromSite = async (req, res) => {
       }
     });
 
-    // Update employees to unassign them from this site (set siteId to null)
+    // Update employees to unassign them from this site (set siteId to null, autoPunchEnabled to false)
     const result = await Employee.updateMany(
       { _id: { $in: employeeObjectIds }, siteId: new mongoose.Types.ObjectId(siteId) },
-      { $set: { siteId: null } }
+      { $set: { siteId: null, autoPunchEnabled: false } }
     );
 
     console.log(`[unassignEmployeesFromSite] Unassigned ${result.modifiedCount} employees from site ${siteId}`);
@@ -794,10 +814,36 @@ export const reassignEmployeesToSite = async (req, res) => {
 
     const targetSiteObjectId = new mongoose.Types.ObjectId(targetSiteId);
 
+    // Check if target site has managers assigned
+    const targetSiteManagers = await Manager.find({ siteId: targetSiteObjectId }).limit(1);
+    const updateData = { 
+      siteId: targetSiteObjectId,
+      autoPunchEnabled: true
+    };
+    if (targetSiteManagers.length > 0) {
+      updateData.managerId = targetSiteManagers[0]._id;
+    }
+
     // Update employees to reassign them to the target site
     const result = await Employee.updateMany(
       { _id: { $in: employeeObjectIds } },
-      { $set: { siteId: targetSiteObjectId } }
+      { $set: updateData }
+    );
+
+    // Also update attendance records to target site
+    const attendanceUpdateData = { siteId: targetSiteObjectId };
+    if (targetSiteManagers.length > 0) {
+      attendanceUpdateData.managerId = targetSiteManagers[0]._id;
+    }
+    await Attendance.updateMany(
+      { 
+        employeeId: { $in: employeeObjectIds },
+        $or: [
+          { siteId: null },
+          { siteId: { $ne: targetSiteObjectId } }
+        ]
+      },
+      { $set: attendanceUpdateData }
     );
 
     console.log(`[reassignEmployeesToSite] Reassigned ${result.modifiedCount} employees to site ${targetSiteId}`);

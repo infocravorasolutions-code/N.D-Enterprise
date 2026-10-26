@@ -131,10 +131,12 @@ export const employeeAPI = {
   },
   
   // Assign employees to a site
-  assignEmployeesToSite: (siteId, employeeIds) => {
+  assignEmployeesToSite: (siteId, employeeIds, managerId = null) => {
+    const payload = { employeeIds };
+    if (managerId) payload.managerId = managerId;
     return apiCall(`/site/${siteId}/assign-employees`, {
       method: 'POST',
-      body: JSON.stringify({ employeeIds }),
+      body: JSON.stringify(payload),
     });
   },
   
@@ -375,10 +377,12 @@ export const siteAPI = {
     return apiCall(`/site/${id}/attendance${queryString ? `?${queryString}` : ''}`);
   },
   
-  assignEmployees: (siteId, employeeIds) => {
+  assignEmployees: (siteId, employeeIds, managerId = null) => {
+    const payload = { employeeIds };
+    if (managerId) payload.managerId = managerId;
     return apiCall(`/site/${siteId}/assign-employees`, {
       method: 'POST',
-      body: JSON.stringify({ employeeIds }),
+      body: JSON.stringify(payload),
     });
   },
   

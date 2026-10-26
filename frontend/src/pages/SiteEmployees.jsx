@@ -190,6 +190,21 @@ const SiteEmployees = () => {
     }
   }
 
+  const handleUnassignSingle = async (employee) => {
+    if (!window.confirm(`Are you sure you want to unassign "${employee.name}" from this site? They will be moved back to unassigned/global.`)) {
+      return
+    }
+
+    try {
+      await siteAPI.unassignEmployees(id, [employee._id])
+      alert(`Successfully unassigned "${employee.name}" from this site`)
+      await fetchEmployees()
+    } catch (err) {
+      console.error('Error unassigning employee:', err)
+      alert(err.message || 'Failed to unassign employee')
+    }
+  }
+
   const handleToggleAutoPunch = async (employeeId, currentStatus) => {
     try {
       const nextStatus = !currentStatus
@@ -568,6 +583,21 @@ const SiteEmployees = () => {
                             <FaEdit />
                           </button>
                           <button
+                            className="card-action-btn"
+                            onClick={() => handleUnassignSingle(employee)}
+                            title="Unassign from Site"
+                            style={{
+                              background: '#fef3c7',
+                              color: '#d97706',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '6px 8px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <FaUnlink />
+                          </button>
+                          <button
                             className="card-action-btn delete"
                             onClick={() => handleDelete(employee._id)}
                             title="Delete"
@@ -629,7 +659,23 @@ const SiteEmployees = () => {
                   <span style={{ fontWeight: '500', color: '#1e40af' }}>
                     {selectedEmployees.size} employee(s) selected
                   </span>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button 
+                      className="btn-secondary" 
+                      onClick={handleUnassign}
+                      style={{ background: '#f59e0b', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <FaUnlink />
+                      Unassign from Site ({selectedEmployees.size})
+                    </button>
+                    <button 
+                      className="btn-secondary" 
+                      onClick={() => setIsReassignModalOpen(true)}
+                      style={{ background: '#8b5cf6', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <FaExchangeAlt />
+                      Move to Site ({selectedEmployees.size})
+                    </button>
                     <button 
                       className="btn-secondary" 
                       onClick={() => handleBulkAutoPunch(true)}
@@ -736,14 +782,34 @@ const SiteEmployees = () => {
                           <div className="action-buttons">
                             <button
                               className="action-btn action-edit" 
-                              title="Edit"
+                              title="Edit Employee"
                               onClick={() => handleEditEmployee(employee)}
                             >
                               <FaEdit />
                             </button>
                             <button
+                              className="action-btn" 
+                              title="Unassign from Site"
+                              onClick={() => handleUnassignSingle(employee)}
+                              style={{
+                                background: '#fef3c7',
+                                color: '#d97706',
+                                border: '1px solid #fde68a'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#fde68a'
+                                e.currentTarget.style.color = '#b45309'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#fef3c7'
+                                e.currentTarget.style.color = '#d97706'
+                              }}
+                            >
+                              <FaUnlink />
+                            </button>
+                            <button
                               className="action-btn action-delete" 
-                              title="Delete"
+                              title="Delete Employee"
                               onClick={() => handleDelete(employee._id)}
                             >
                               <FaTrash />
